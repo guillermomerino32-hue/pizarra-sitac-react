@@ -3,20 +3,24 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react"
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/integrations/supabase/client";
 import {
-  CLAVES_LOG, CLAVES_VISUALES, CLAVE_DESCRIPCIONES, FUNCION_COLORS, FUNCION_LABELS,
-  type Clave, type Funcion, type Interviniente, type Servicio, type Sticker, type Tipo, type Zona,
+  CLAVES_LOG, CLAVES_VISUALES, CLAVE_DESCRIPCIONES, FUNCION_COLORS, FUNCION_LABELS, TRAZO_COLORS,
+  type Clave, type Foco, type Funcion, type Interviniente, type Servicio, type Sticker, type Tipo, type Trazo, type Zona,
 } from "@/lib/domain";
 import MapPanel from "@/components/MapPanel";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import {
   ArrowLeft, ChevronLeft, ChevronRight, Plus, Map as MapIcon, Square, X, AlertTriangle, FileText, ScrollText,
+  MousePointer2, Pen, Eraser, Flame, Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
+
+type Tool = "select" | "pencil" | "eraser";
 
 export const Route = createFileRoute("/servicio/$numero")({
   component: ServicioScreen,
@@ -34,12 +38,17 @@ function ServicioScreen() {
   const [stickers, setStickers] = useState<Sticker[]>([]);
   const [logs, setLogs] = useState<any[]>([]);
   const [zonas, setZonas] = useState<Zona[]>([]);
+  const [trazos, setTrazos] = useState<Trazo[]>([]);
+  const [focos, setFocos] = useState<Foco[]>([]);
   const [logOpen, setLogOpen] = useState(true);
   const [addOpen, setAddOpen] = useState(false);
   const [contextSticker, setContextSticker] = useState<Sticker | null>(null);
   const [contextPos, setContextPos] = useState<{ x: number; y: number } | null>(null);
   const [editInter, setEditInter] = useState<Interviniente | null>(null);
+  const [editFoco, setEditFoco] = useState<Foco | null>(null);
   const [finalizeOpen, setFinalizeOpen] = useState(false);
+  const [tool, setTool] = useState<Tool>("select");
+  const [penColor, setPenColor] = useState(TRAZO_COLORS[1]);
   const boardRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => { if (!session) navigate({ to: "/" }); }, [session, navigate]);
@@ -59,16 +68,20 @@ function ServicioScreen() {
     if (!servicio) return;
     const sid = servicio.id;
     (async () => {
-      const [i, s, l, z] = await Promise.all([
+      const [i, s, l, z, t, f] = await Promise.all([
         supabase.from("intervinientes").select("*").eq("servicio_id", sid).order("created_at"),
         supabase.from("stickers").select("*").eq("servicio_id", sid),
         supabase.from("claves_log").select("*").eq("servicio_id", sid).order("created_at", { ascending: true }),
         (supabase.from as any)("zonas").select("*").eq("servicio_id", sid).order("created_at"),
+        (supabase.from as any)("trazos").select("*").eq("servicio_id", sid).order("created_at"),
+        (supabase.from as any)("focos").select("*").eq("servicio_id", sid).order("created_at"),
       ]);
       setIntervinientes((i.data as any) ?? []);
       setStickers((s.data as any) ?? []);
       setLogs(l.data ?? []);
       setZonas((z.data as any) ?? []);
+      setTrazos((t.data as any) ?? []);
+      setFocos((f.data as any) ?? []);
     })();
 
     const ch = supabase.channel(`sv-${sid}`)
@@ -83,6 +96,12 @@ function ServicioScreen() {
       })
       .on("postgres_changes", { event: "*", schema: "public", table: "zonas", filter: `servicio_id=eq.${sid}` }, (p) => {
         setZonas(prev => upsertOrDelete(prev, p));
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "trazos", filter: `servicio_id=eq.${sid}` }, (p) => {
+        setTrazos(prev => upsertOrDelete(prev, p));
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "focos", filter: `servicio_id=eq.${sid}` }, (p) => {
+        setFocos(prev => upsertOrDelete(prev, p));
       })
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "servicios", filter: `id=eq.${sid}` }, (p) => {
         const updated = p.new as any;
@@ -102,6 +121,9 @@ function ServicioScreen() {
     stickers.filter(s => s.panel === panel && !s.removed).forEach(s => m.set(s.interviniente_id, s));
     return m;
   }, [stickers, panel]);
+
+  const pizarraTrazos = useMemo(() => trazos.filter(t => t.panel === "pizarra"), [trazos]);
+  const pizarraFocos = useMemo(() => focos.filter(f => f.panel === "pizarra"), [focos]);
 
   function intStatus(i: Interviniente): { label: string; dot: string; placedHere: boolean } {
     const placedHere = stickersByInt.has(i.id);
@@ -123,16 +145,14 @@ function ServicioScreen() {
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
 
-    // existing sticker on this panel?
-    const existing = stickers.find(s => s.interviniente_id === intId && s.panel === panel);
+    const existing = stickers.find(s => s.interviniente_id === intId && s.panel === "pizarra");
     if (existing) {
-      // moving: revert to C2
       const now = new Date().toISOString();
       await supabase.from("stickers").update({ x, y, clave: "C2", dashed: true, removed: false, c2_at: now, c3_at: null, updated_at: now } as any).eq("id", existing.id);
       await logClave(interviniente.indicativo_recurso, "C2");
     } else {
       const { error } = await supabase.from("stickers").insert({
-        servicio_id: servicio.id, interviniente_id: intId, panel, x, y, clave: "C2", dashed: true,
+        servicio_id: servicio.id, interviniente_id: intId, panel: "pizarra", x, y, clave: "C2", dashed: true,
       } as any);
       if (error) { toast.error(error.message); return; }
       await logClave(interviniente.indicativo_recurso, "C2");
@@ -173,7 +193,6 @@ function ServicioScreen() {
     const inter = intervinientes.find(i => i.id === sticker.interviniente_id);
     if (!inter) return;
     const now = new Date().toISOString();
-    // moving reverts to C2
     await supabase.from("stickers").update({ x, y, clave: "C2", dashed: true, c2_at: now, c3_at: null, updated_at: now } as any).eq("id", sticker.id);
     await logClave(inter.indicativo_recurso, "C2");
   }
@@ -215,6 +234,49 @@ function ServicioScreen() {
     await (supabase.from as any)("zonas").delete().eq("id", id);
   }
 
+  // Trazos
+  async function createTrazoMap(puntos: { lat: number; lng: number }[], color: string) {
+    if (!servicio) return;
+    await (supabase.from as any)("trazos").insert({
+      servicio_id: servicio.id, panel: "mapa", color, puntos, created_by: session?.indicativo,
+    });
+  }
+  async function createTrazoPizarra(puntos: { x: number; y: number }[], color: string) {
+    if (!servicio) return;
+    await (supabase.from as any)("trazos").insert({
+      servicio_id: servicio.id, panel: "pizarra", color, puntos, created_by: session?.indicativo,
+    });
+  }
+  async function deleteTrazo(id: string) {
+    await (supabase.from as any)("trazos").delete().eq("id", id);
+  }
+
+  // Focos
+  async function createFocoMap(lat: number, lng: number) {
+    if (!servicio) return;
+    await (supabase.from as any)("focos").insert({
+      servicio_id: servicio.id, panel: "mapa", nombre: `Foco ${focos.filter(f => f.panel === "mapa").length + 1}`, info: "", lat, lng, x: 0, y: 0, created_by: session?.indicativo,
+    });
+  }
+  async function createFocoPizarra(x: number, y: number) {
+    if (!servicio) return;
+    await (supabase.from as any)("focos").insert({
+      servicio_id: servicio.id, panel: "pizarra", nombre: `Foco ${focos.filter(f => f.panel === "pizarra").length + 1}`, info: "", x, y, created_by: session?.indicativo,
+    });
+  }
+  async function moveFocoMap(id: string, lat: number, lng: number) {
+    await (supabase.from as any)("focos").update({ lat, lng, updated_at: new Date().toISOString() }).eq("id", id);
+  }
+  async function moveFocoPizarra(id: string, x: number, y: number) {
+    await (supabase.from as any)("focos").update({ x, y, updated_at: new Date().toISOString() }).eq("id", id);
+  }
+  async function saveFoco(id: string, nombre: string, info: string) {
+    await (supabase.from as any)("focos").update({ nombre, info, updated_at: new Date().toISOString() }).eq("id", id);
+  }
+  async function deleteFoco(id: string) {
+    await (supabase.from as any)("focos").delete().eq("id", id);
+  }
+
   async function finalizarServicio() {
     if (!servicio) return;
     await supabase.from("historial").insert({ numero: servicio.numero, resumen: { intervinientes: intervinientes.length, claves: logs.length } } as any);
@@ -229,7 +291,6 @@ function ServicioScreen() {
 
   return (
     <div className="h-screen flex flex-col bg-background overflow-hidden">
-      {/* Header */}
       <header className="border-b bg-card flex items-center justify-between px-3 py-2 z-20">
         <div className="flex items-center gap-2">
           <Button size="icon" variant="ghost" onClick={() => navigate({ to: "/main" })}><ArrowLeft className="w-4 h-4" /></Button>
@@ -240,10 +301,10 @@ function ServicioScreen() {
           </div>
         </div>
         <div className="flex items-center gap-1 bg-secondary rounded p-1">
-          <button onClick={() => setPanel("pizarra")} className={`px-3 py-1.5 text-xs uppercase tracking-wider rounded font-bold ${panel==="pizarra"?"bg-primary text-primary-foreground":"text-muted-foreground"}`}>
+          <button onClick={() => { setPanel("pizarra"); setTool("select"); }} className={`px-3 py-1.5 text-xs uppercase tracking-wider rounded font-bold ${panel==="pizarra"?"bg-primary text-primary-foreground":"text-muted-foreground"}`}>
             <Square className="w-3 h-3 inline mr-1" />Pizarra
           </button>
-          <button onClick={() => setPanel("mapa")} className={`px-3 py-1.5 text-xs uppercase tracking-wider rounded font-bold ${panel==="mapa"?"bg-primary text-primary-foreground":"text-muted-foreground"}`}>
+          <button onClick={() => { setPanel("mapa"); setTool("select"); }} className={`px-3 py-1.5 text-xs uppercase tracking-wider rounded font-bold ${panel==="mapa"?"bg-primary text-primary-foreground":"text-muted-foreground"}`}>
             <MapIcon className="w-3 h-3 inline mr-1" />Mapa
           </button>
         </div>
@@ -298,7 +359,6 @@ function ServicioScreen() {
           </aside>
         )}
 
-        {/* Board area */}
         <div className="flex-1 relative overflow-hidden">
           {panel === "mapa" ? (
             <MapPanel
@@ -306,6 +366,8 @@ function ServicioScreen() {
               intervinientes={intervinientes}
               stickers={stickers}
               zonas={zonas}
+              trazos={trazos}
+              focos={focos}
               isMando={isMando}
               currentIndicativo={session?.indicativo ?? ""}
               onDropSticker={dropOnMap}
@@ -313,29 +375,58 @@ function ServicioScreen() {
               onContextSticker={(s, x, y) => { setContextSticker(s); setContextPos({ x, y }); }}
               onCreateZona={createZona}
               onDeleteZona={deleteZona}
+              onCreateTrazo={createTrazoMap}
+              onDeleteTrazo={deleteTrazo}
+              onCreateFoco={createFocoMap}
+              onMoveFoco={moveFocoMap}
+              onOpenFoco={(f) => setEditFoco(f)}
             />
           ) : (
-            <div
-              ref={boardRef}
-              onDragOver={e => e.preventDefault()}
+            <PizarraBoard
+              boardRef={boardRef}
+              stickers={stickers}
+              intervinientes={intervinientes}
+              trazos={pizarraTrazos}
+              focos={pizarraFocos}
+              tool={tool}
+              penColor={penColor}
               onDrop={handleDrop}
-              className="absolute inset-0 pizarra-bg overflow-hidden"
-            >
-              {stickers.filter(s => s.panel === "pizarra" && !s.removed).map(s => {
-                const i = intervinientes.find(x => x.id === s.interviniente_id);
-                if (!i) return null;
-                return <StickerOnBoard key={s.id} sticker={s} interviniente={i}
-                  onMove={(x,y) => moveSticker(s, x, y)}
-                  onContext={(x,y) => { setContextSticker(s); setContextPos({ x, y }); }}
-                  onOpen={() => setEditInter(i)}
-                />;
-              })}
-              {/* Watermark */}
-              <div className="absolute bottom-4 left-4 text-xs text-black/30 font-mono uppercase tracking-widest pointer-events-none">SITAC · #{servicio.numero}</div>
+              onMoveSticker={moveSticker}
+              onContextSticker={(s, x, y) => { setContextSticker(s); setContextPos({ x, y }); }}
+              onOpenInter={(i) => setEditInter(i)}
+              onCreateTrazo={createTrazoPizarra}
+              onDeleteTrazo={deleteTrazo}
+              onCreateFoco={createFocoPizarra}
+              onMoveFoco={moveFocoPizarra}
+              onOpenFoco={(f) => setEditFoco(f)}
+              numero={servicio.numero}
+            />
+          )}
+
+          {/* Toolbar pizarra */}
+          {panel === "pizarra" && (
+            <div className="absolute top-3 left-3 z-30 bg-card border rounded-md shadow-xl p-2 flex flex-col gap-2">
+              <div className="flex items-center gap-1">
+                <ToolBtn active={tool === "select"} onClick={() => setTool("select")} title="Seleccionar"><MousePointer2 className="w-3.5 h-3.5" /></ToolBtn>
+                <ToolBtn active={tool === "pencil"} onClick={() => setTool("pencil")} title="Lápiz"><Pen className="w-3.5 h-3.5" /></ToolBtn>
+                <ToolBtn active={tool === "eraser"} onClick={() => setTool("eraser")} title="Goma"><Eraser className="w-3.5 h-3.5" /></ToolBtn>
+                <ToolBtn active={false} onClick={() => {
+                  if (!boardRef.current) return;
+                  const r = boardRef.current.getBoundingClientRect();
+                  createFocoPizarra(r.width / 2, r.height / 2);
+                }} title="Añadir foco"><Flame className="w-3.5 h-3.5 text-red-500" /></ToolBtn>
+              </div>
+              {tool === "pencil" && (
+                <div className="flex items-center gap-1">
+                  {TRAZO_COLORS.map(c => (
+                    <button key={c} onClick={() => setPenColor(c)} className={`w-5 h-5 rounded border-2 ${penColor === c ? "border-primary" : "border-transparent"}`} style={{ background: c }} />
+                  ))}
+                </div>
+              )}
+              {tool === "eraser" && <div className="text-[10px] text-muted-foreground">Clic en trazo/foco para borrar</div>}
             </div>
           )}
 
-          {/* Context menu */}
           {contextSticker && contextPos && (
             <ClaveMenu
               x={contextPos.x} y={contextPos.y}
@@ -345,8 +436,7 @@ function ServicioScreen() {
             />
           )}
 
-          {/* Movement log */}
-          <div className={`absolute bottom-3 right-3 w-80 max-w-[calc(100%-1.5rem)] bg-card border rounded shadow-xl flex flex-col ${logOpen ? "h-64" : "h-9"} transition-all`}>
+          <div className={`absolute bottom-3 right-3 w-80 max-w-[calc(100%-1.5rem)] bg-card border rounded shadow-xl flex flex-col ${logOpen ? "h-64" : "h-9"} transition-all z-30`}>
             <button onClick={() => setLogOpen(o => !o)} className="flex items-center justify-between px-3 py-2 border-b text-xs uppercase tracking-widest text-muted-foreground">
               <span className="flex items-center gap-2"><ScrollText className="w-3.5 h-3.5" />Registro de movimientos ({logs.length})</span>
               {logOpen ? <ChevronRight className="w-3 h-3 rotate-90"/> : <ChevronRight className="w-3 h-3 -rotate-90"/>}
@@ -367,10 +457,8 @@ function ServicioScreen() {
         </div>
       </div>
 
-      {/* Add interviniente */}
       <AddIntervinienteDialog open={addOpen} onOpenChange={setAddOpen} servicioId={servicio.id} existentes={intervinientes} />
 
-      {/* Ver/editar interviniente */}
       <Sheet open={!!editInter} onOpenChange={(o) => !o && setEditInter(null)}>
         <SheetContent className="w-full sm:max-w-md overflow-y-auto">
           <SheetHeader><SheetTitle>Interviniente</SheetTitle></SheetHeader>
@@ -380,7 +468,8 @@ function ServicioScreen() {
         </SheetContent>
       </Sheet>
 
-      {/* Finalizar */}
+      <FocoDialog foco={editFoco} onClose={() => setEditFoco(null)} onSave={saveFoco} onDelete={deleteFoco} canEdit={true} />
+
       <Dialog open={finalizeOpen} onOpenChange={setFinalizeOpen}>
         <DialogContent>
           <DialogHeader><DialogTitle>Finalizar servicio</DialogTitle></DialogHeader>
@@ -392,6 +481,209 @@ function ServicioScreen() {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+function ToolBtn({ active, onClick, title, children }: { active: boolean; onClick: () => void; title: string; children: React.ReactNode; }) {
+  return (
+    <button onClick={onClick} title={title} className={`w-8 h-8 flex items-center justify-center rounded border ${active ? "bg-primary text-primary-foreground border-primary" : "bg-secondary border-border hover:bg-accent"}`}>
+      {children}
+    </button>
+  );
+}
+
+function PizarraBoard({
+  boardRef, stickers, intervinientes, trazos, focos, tool, penColor, numero,
+  onDrop, onMoveSticker, onContextSticker, onOpenInter,
+  onCreateTrazo, onDeleteTrazo, onCreateFoco, onMoveFoco, onOpenFoco,
+}: {
+  boardRef: React.MutableRefObject<HTMLDivElement | null>;
+  stickers: Sticker[]; intervinientes: Interviniente[]; trazos: Trazo[]; focos: Foco[];
+  tool: Tool; penColor: string; numero: number;
+  onDrop: (e: React.DragEvent) => void;
+  onMoveSticker: (s: Sticker, x: number, y: number) => void;
+  onContextSticker: (s: Sticker, x: number, y: number) => void;
+  onOpenInter: (i: Interviniente) => void;
+  onCreateTrazo: (pts: { x: number; y: number }[], color: string) => void;
+  onDeleteTrazo: (id: string) => void;
+  onCreateFoco: (x: number, y: number) => void;
+  onMoveFoco: (id: string, x: number, y: number) => void;
+  onOpenFoco: (f: Foco) => void;
+}) {
+  const [stroke, setStroke] = useState<{ x: number; y: number }[]>([]);
+  const drawing = useRef(false);
+
+  function pointerDown(e: React.PointerEvent) {
+    if (tool !== "pencil") return;
+    e.preventDefault();
+    drawing.current = true;
+    const r = boardRef.current!.getBoundingClientRect();
+    setStroke([{ x: e.clientX - r.left, y: e.clientY - r.top }]);
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+  }
+  function pointerMove(e: React.PointerEvent) {
+    if (!drawing.current) return;
+    const r = boardRef.current!.getBoundingClientRect();
+    setStroke(prev => [...prev, { x: e.clientX - r.left, y: e.clientY - r.top }]);
+  }
+  function pointerUp() {
+    if (!drawing.current) return;
+    drawing.current = false;
+    setStroke(prev => {
+      if (prev.length >= 2) onCreateTrazo(prev, penColor);
+      return [];
+    });
+  }
+
+  const interactive = tool === "pencil" || tool === "eraser";
+
+  return (
+    <div
+      ref={boardRef}
+      onDragOver={e => e.preventDefault()}
+      onDrop={onDrop}
+      className="absolute inset-0 pizarra-bg overflow-hidden"
+      style={{ cursor: tool === "pencil" ? "crosshair" : tool === "eraser" ? "cell" : undefined }}
+    >
+      {/* SVG layer for trazos + pencil capture */}
+      <svg
+        className="absolute inset-0 w-full h-full"
+        style={{ pointerEvents: interactive ? "auto" : "none" }}
+        onPointerDown={pointerDown}
+        onPointerMove={pointerMove}
+        onPointerUp={pointerUp}
+      >
+        {trazos.map(t => {
+          const pts = (t.puntos as any[]).filter(p => p.x != null && p.y != null);
+          if (pts.length < 2) return null;
+          const d = "M " + pts.map(p => `${p.x},${p.y}`).join(" L ");
+          return (
+            <path
+              key={t.id}
+              d={d}
+              stroke={t.color}
+              strokeWidth={3}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              fill="none"
+              style={{ cursor: tool === "eraser" ? "pointer" : undefined, pointerEvents: tool === "eraser" ? "stroke" : "none" }}
+              onClick={() => { if (tool === "eraser") onDeleteTrazo(t.id); }}
+            />
+          );
+        })}
+        {stroke.length > 1 && (
+          <path d={"M " + stroke.map(p => `${p.x},${p.y}`).join(" L ")} stroke={penColor} strokeWidth={3} fill="none" strokeLinecap="round" strokeLinejoin="round" opacity={0.8} />
+        )}
+      </svg>
+
+      {/* Focos */}
+      {focos.map(f => (
+        <FocoSticker key={f.id} foco={f} tool={tool} boardRef={boardRef} onMove={(x, y) => onMoveFoco(f.id, x, y)} onOpen={() => onOpenFoco(f)} />
+      ))}
+
+      {/* Intervinientes stickers */}
+      {stickers.filter(s => s.panel === "pizarra" && !s.removed).map(s => {
+        const i = intervinientes.find(x => x.id === s.interviniente_id);
+        if (!i) return null;
+        return <StickerOnBoard key={s.id} sticker={s} interviniente={i}
+          onMove={(x,y) => onMoveSticker(s, x, y)}
+          onContext={(x,y) => onContextSticker(s, x, y)}
+          onOpen={() => onOpenInter(i)}
+          disabled={tool !== "select"}
+        />;
+      })}
+
+      <div className="absolute bottom-4 left-4 text-xs text-black/30 font-mono uppercase tracking-widest pointer-events-none">SITAC · #{numero}</div>
+    </div>
+  );
+}
+
+function FocoSticker({ foco, tool, boardRef, onMove, onOpen }: {
+  foco: Foco; tool: Tool;
+  boardRef: React.MutableRefObject<HTMLDivElement | null>;
+  onMove: (x: number, y: number) => void;
+  onOpen: () => void;
+}) {
+  const ref = useRef<HTMLDivElement | null>(null);
+  const dragging = useRef<{ ox: number; oy: number; moved: boolean } | null>(null);
+
+  function pd(e: React.PointerEvent) {
+    if (e.button !== 0 || tool !== "select") return;
+    const rect = ref.current!.getBoundingClientRect();
+    dragging.current = { ox: e.clientX - rect.left, oy: e.clientY - rect.top, moved: false };
+    ref.current!.setPointerCapture(e.pointerId);
+  }
+  function pm(e: React.PointerEvent) {
+    if (!dragging.current) return;
+    dragging.current.moved = true;
+    const board = boardRef.current!.getBoundingClientRect();
+    const x = e.clientX - board.left - dragging.current.ox;
+    const y = e.clientY - board.top - dragging.current.oy;
+    ref.current!.style.left = x + "px";
+    ref.current!.style.top = y + "px";
+  }
+  function pu(e: React.PointerEvent) {
+    const d = dragging.current; dragging.current = null;
+    if (!d) return;
+    if (d.moved) {
+      const board = boardRef.current!.getBoundingClientRect();
+      const x = e.clientX - board.left - d.ox;
+      const y = e.clientY - board.top - d.oy;
+      onMove(Math.max(0, x), Math.max(0, y));
+    }
+  }
+
+  return (
+    <div
+      ref={ref}
+      style={{ position: "absolute", left: foco.x, top: foco.y, width: 48, height: 60, userSelect: "none", cursor: tool === "select" ? "grab" : tool === "eraser" ? "pointer" : undefined }}
+      onPointerDown={pd}
+      onPointerMove={pm}
+      onPointerUp={pu}
+      onDoubleClick={onOpen}
+      onClick={() => { if (tool === "eraser") onOpen(); }}
+      title={foco.nombre}
+    >
+      <svg viewBox="0 0 64 64" width={48} height={48} style={{ filter: "drop-shadow(0 2px 4px rgba(0,0,0,.5))" }}>
+        <polygon points="32,2 38,20 56,14 44,30 62,36 42,40 50,58 32,46 14,58 22,40 2,36 20,30 8,14 26,20" fill="#dc2626" stroke="#000" strokeWidth={2} strokeLinejoin="round"/>
+        <circle cx={32} cy={32} r={8} fill="#7f1d1d" stroke="#000" strokeWidth={1.5}/>
+      </svg>
+      <div style={{ position: "absolute", left: "50%", top: 48, transform: "translateX(-50%)", background: "#000", color: "#fff", fontFamily: "JetBrains Mono, monospace", fontSize: 10, fontWeight: 700, padding: "1px 4px", borderRadius: 2, whiteSpace: "nowrap" }}>
+        {foco.nombre}
+      </div>
+    </div>
+  );
+}
+
+function FocoDialog({ foco, onClose, onSave, onDelete, canEdit }: {
+  foco: Foco | null; onClose: () => void;
+  onSave: (id: string, nombre: string, info: string) => Promise<void>;
+  onDelete: (id: string) => Promise<void>;
+  canEdit: boolean;
+}) {
+  const [nombre, setNombre] = useState("");
+  const [info, setInfo] = useState("");
+  useEffect(() => { if (foco) { setNombre(foco.nombre); setInfo(foco.info); } }, [foco]);
+  if (!foco) return null;
+  return (
+    <Dialog open={!!foco} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent>
+        <DialogHeader><DialogTitle className="flex items-center gap-2"><Flame className="w-4 h-4 text-red-500" />Foco</DialogTitle></DialogHeader>
+        <div className="space-y-3">
+          <div><Label>Nombre</Label><Input value={nombre} disabled={!canEdit} onChange={e => setNombre(e.target.value)} /></div>
+          <div><Label>Información</Label><Textarea value={info} disabled={!canEdit} onChange={e => setInfo(e.target.value)} rows={6} placeholder="Detalles del foco, riesgos, recursos asignados…" /></div>
+        </div>
+        <DialogFooter className="flex justify-between sm:justify-between">
+          {canEdit ? (
+            <Button variant="destructive" size="sm" onClick={async () => { if (confirm("¿Eliminar foco?")) { await onDelete(foco.id); onClose(); } }}><Trash2 className="w-3.5 h-3.5 mr-1" />Eliminar</Button>
+          ) : <span />}
+          <div className="flex gap-2">
+            <Button variant="ghost" onClick={onClose}>Cerrar</Button>
+            {canEdit && <Button onClick={async () => { await onSave(foco.id, nombre.trim() || "Foco", info); onClose(); }}>Guardar</Button>}
+          </div>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -414,17 +706,18 @@ function StickerPreview({ interviniente }: { interviniente: Interviniente }) {
   );
 }
 
-function StickerOnBoard({ sticker, interviniente, onMove, onContext, onOpen }: {
+function StickerOnBoard({ sticker, interviniente, onMove, onContext, onOpen, disabled }: {
   sticker: Sticker; interviniente: Interviniente;
   onMove: (x: number, y: number) => void;
   onContext: (x: number, y: number) => void;
   onOpen: () => void;
+  disabled?: boolean;
 }) {
   const color = FUNCION_COLORS[interviniente.funcion];
   const isCircle = interviniente.tipo === "pie";
   const ref = useRef<HTMLDivElement | null>(null);
   const dragging = useRef<{ ox: number; oy: number; moved: boolean } | null>(null);
-  const blocked = sticker.clave === "C0";
+  const blocked = sticker.clave === "C0" || disabled;
 
   function onPointerDown(e: React.PointerEvent) {
     if (e.button !== 0) return;
@@ -457,7 +750,7 @@ function StickerOnBoard({ sticker, interviniente, onMove, onContext, onOpen }: {
   return (
     <div
       ref={ref}
-      className={`sticker ${isCircle ? "circle" : "rect"} ${sticker.dashed ? "dashed" : ""} ${blocked ? "c0" : ""}`}
+      className={`sticker ${isCircle ? "circle" : "rect"} ${sticker.dashed ? "dashed" : ""} ${sticker.clave === "C0" ? "c0" : ""}`}
       style={{ left: sticker.x, top: sticker.y, background: color }}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}

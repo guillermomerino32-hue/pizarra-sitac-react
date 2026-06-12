@@ -49,6 +49,51 @@ export type Database = {
           },
         ]
       }
+      focos: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          info: string
+          lat: number | null
+          lng: number | null
+          nombre: string
+          panel: string
+          servicio_id: string
+          updated_at: string
+          x: number
+          y: number
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          info?: string
+          lat?: number | null
+          lng?: number | null
+          nombre?: string
+          panel: string
+          servicio_id: string
+          updated_at?: string
+          x?: number
+          y?: number
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          info?: string
+          lat?: number | null
+          lng?: number | null
+          nombre?: string
+          panel?: string
+          servicio_id?: string
+          updated_at?: string
+          x?: number
+          y?: number
+        }
+        Relationships: []
+      }
       historial: {
         Row: {
           fecha: string
@@ -209,6 +254,36 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      trazos: {
+        Row: {
+          color: string
+          created_at: string
+          created_by: string | null
+          id: string
+          panel: string
+          puntos: Json
+          servicio_id: string
+        }
+        Insert: {
+          color?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          panel: string
+          puntos?: Json
+          servicio_id: string
+        }
+        Update: {
+          color?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          panel?: string
+          puntos?: Json
+          servicio_id?: string
+        }
+        Relationships: []
       }
       zonas: {
         Row: {
