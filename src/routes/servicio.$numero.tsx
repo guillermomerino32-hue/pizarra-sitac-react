@@ -178,6 +178,43 @@ function ServicioScreen() {
     await logClave(inter.indicativo_recurso, "C2");
   }
 
+  async function dropOnMap(intId: string, lat: number, lng: number) {
+    if (!servicio) return;
+    const interviniente = intervinientes.find(i => i.id === intId);
+    if (!interviniente) return;
+    const existing = stickers.find(s => s.interviniente_id === intId && s.panel === "mapa");
+    const now = new Date().toISOString();
+    if (existing) {
+      await supabase.from("stickers").update({ lat, lng, clave: "C2", dashed: true, removed: false, c2_at: now, c3_at: null, updated_at: now } as any).eq("id", existing.id);
+    } else {
+      const { error } = await supabase.from("stickers").insert({
+        servicio_id: servicio.id, interviniente_id: intId, panel: "mapa", x: 0, y: 0, lat, lng, clave: "C2", dashed: true,
+      } as any);
+      if (error) { toast.error(error.message); return; }
+    }
+    await logClave(interviniente.indicativo_recurso, "C2");
+  }
+
+  async function moveStickerMap(sticker: Sticker, lat: number, lng: number) {
+    const inter = intervinientes.find(i => i.id === sticker.interviniente_id);
+    if (!inter) return;
+    const now = new Date().toISOString();
+    await supabase.from("stickers").update({ lat, lng, clave: "C2", dashed: true, c2_at: now, c3_at: null, updated_at: now } as any).eq("id", sticker.id);
+    await logClave(inter.indicativo_recurso, "C2");
+  }
+
+  async function createZona(puntos: { lat: number; lng: number }[], color: string) {
+    if (!servicio) return;
+    const nombre = `Zona ${zonas.length + 1}`;
+    const { error } = await (supabase.from as any)("zonas").insert({
+      servicio_id: servicio.id, nombre, color, puntos, created_by: session?.indicativo,
+    });
+    if (error) toast.error(error.message);
+  }
+  async function deleteZona(id: string) {
+    await (supabase.from as any)("zonas").delete().eq("id", id);
+  }
+
   async function finalizarServicio() {
     if (!servicio) return;
     await supabase.from("historial").insert({ numero: servicio.numero, resumen: { intervinientes: intervinientes.length, claves: logs.length } } as any);
