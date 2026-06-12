@@ -4,8 +4,9 @@ import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/integrations/supabase/client";
 import {
   CLAVES_LOG, CLAVES_VISUALES, CLAVE_DESCRIPCIONES, FUNCION_COLORS, FUNCION_LABELS,
-  type Clave, type Funcion, type Interviniente, type Servicio, type Sticker, type Tipo,
+  type Clave, type Funcion, type Interviniente, type Servicio, type Sticker, type Tipo, type Zona,
 } from "@/lib/domain";
+import MapPanel from "@/components/MapPanel";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
