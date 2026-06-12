@@ -301,13 +301,19 @@ function ServicioScreen() {
         {/* Board area */}
         <div className="flex-1 relative overflow-hidden">
           {panel === "mapa" ? (
-            <div className="h-full flex items-center justify-center text-center p-8 tactical-bg">
-              <div>
-                <MapIcon className="w-12 h-12 text-muted-foreground/40 mx-auto mb-2" />
-                <p className="text-sm text-muted-foreground">Panel Mapa (Leaflet) — próxima fase.</p>
-                <p className="text-xs text-muted-foreground mt-1">La pizarra está totalmente operativa.</p>
-              </div>
-            </div>
+            <MapPanel
+              servicioId={servicio.id}
+              intervinientes={intervinientes}
+              stickers={stickers}
+              zonas={zonas}
+              isMando={isMando}
+              currentIndicativo={session?.indicativo ?? ""}
+              onDropSticker={dropOnMap}
+              onMoveSticker={moveStickerMap}
+              onContextSticker={(s, x, y) => { setContextSticker(s); setContextPos({ x, y }); }}
+              onCreateZona={createZona}
+              onDeleteZona={deleteZona}
+            />
           ) : (
             <div
               ref={boardRef}
