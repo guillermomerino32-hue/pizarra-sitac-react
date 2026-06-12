@@ -24,7 +24,7 @@ export type Subtipo = "ambulancia" | "cardio" | null;
 
 export const FUNCION_COLORS: Record<Funcion, string> = {
   extincion: "#dc2626",
-  rescate: "#dc2626",
+  rescate: "#f97316",
   sanitario: "#16a34a",
   logistico: "#2563eb",
   mando: "#9333ea",
