@@ -33,6 +33,7 @@ function ServicioScreen() {
   const [intervinientes, setIntervinientes] = useState<Interviniente[]>([]);
   const [stickers, setStickers] = useState<Sticker[]>([]);
   const [logs, setLogs] = useState<any[]>([]);
+  const [zonas, setZonas] = useState<Zona[]>([]);
   const [logOpen, setLogOpen] = useState(true);
   const [addOpen, setAddOpen] = useState(false);
   const [contextSticker, setContextSticker] = useState<Sticker | null>(null);
