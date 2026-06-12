@@ -2,15 +2,19 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { MapContainer, TileLayer, Marker, Polygon, Polyline, useMapEvents, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
-import { FUNCION_COLORS, RIVAS_CENTER, RIVAS_ZOOM, ZONA_COLORS, type Interviniente, type Sticker, type Zona } from "@/lib/domain";
+import { FUNCION_COLORS, RIVAS_CENTER, RIVAS_ZOOM, TRAZO_COLORS, ZONA_COLORS, type Foco, type Interviniente, type Sticker, type Trazo, type Zona } from "@/lib/domain";
 import { Button } from "@/components/ui/button";
-import { Pencil, Check, X, Trash2 } from "lucide-react";
+import { Pencil, Check, X, Trash2, Pen, Eraser, MousePointer2, Flame } from "lucide-react";
+
+type Tool = "select" | "pencil" | "eraser" | "zone";
 
 interface Props {
   servicioId: string;
   intervinientes: Interviniente[];
   stickers: Sticker[];
   zonas: Zona[];
+  trazos: Trazo[];
+  focos: Foco[];
   isMando: boolean;
   currentIndicativo: string;
   onDropSticker: (intId: string, lat: number, lng: number) => void;
@@ -18,6 +22,11 @@ interface Props {
   onContextSticker: (sticker: Sticker, x: number, y: number) => void;
   onCreateZona: (puntos: { lat: number; lng: number }[], color: string) => void;
   onDeleteZona: (id: string) => void;
+  onCreateTrazo: (puntos: { lat: number; lng: number }[], color: string) => void;
+  onDeleteTrazo: (id: string) => void;
+  onCreateFoco: (lat: number, lng: number) => void;
+  onMoveFoco: (id: string, lat: number, lng: number) => void;
+  onOpenFoco: (foco: Foco) => void;
 }
 
 function stickerIcon(inter: Interviniente, sticker: Sticker) {
@@ -32,31 +41,77 @@ function stickerIcon(inter: Interviniente, sticker: Sticker) {
   return L.divIcon({ html, className: "sitac-marker", iconSize: [60, 40], iconAnchor: [30, 20] });
 }
 
-function DrawHandler({ active, onPoint, onFinish }: { active: boolean; onPoint: (ll: { lat: number; lng: number }) => void; onFinish: () => void; }) {
+function focoIcon(foco: Foco) {
+  const html = `<div title="${foco.nombre}" style="position:relative;width:48px;height:48px;">
+    <svg viewBox="0 0 64 64" width="48" height="48" style="filter:drop-shadow(0 2px 4px rgba(0,0,0,.6));">
+      <polygon points="32,2 38,20 56,14 44,30 62,36 42,40 50,58 32,46 14,58 22,40 2,36 20,30 8,14 26,20" fill="#dc2626" stroke="#000" stroke-width="2" stroke-linejoin="round"/>
+      <circle cx="32" cy="32" r="8" fill="#7f1d1d" stroke="#000" stroke-width="1.5"/>
+    </svg>
+    <div style="position:absolute;left:50%;top:100%;transform:translate(-50%,4px);background:#000;color:#fff;font-family:JetBrains Mono,monospace;font-size:10px;font-weight:700;padding:1px 4px;border-radius:2px;white-space:nowrap;">${foco.nombre}</div>
+  </div>`;
+  return L.divIcon({ html, className: "sitac-foco", iconSize: [48, 60], iconAnchor: [24, 24] });
+}
+
+function DrawHandler({ tool, onPoint, onFinish, onStrokePoint, onStrokeEnd }: {
+  tool: Tool;
+  onPoint: (ll: { lat: number; lng: number }) => void;
+  onFinish: () => void;
+  onStrokePoint: (ll: { lat: number; lng: number }) => void;
+  onStrokeEnd: () => void;
+}) {
+  const drawingStroke = useRef(false);
   useMapEvents({
-    click(e) { if (active) onPoint({ lat: e.latlng.lat, lng: e.latlng.lng }); },
-    dblclick() { if (active) onFinish(); },
+    click(e) {
+      if (tool === "zone") onPoint({ lat: e.latlng.lat, lng: e.latlng.lng });
+    },
+    dblclick() { if (tool === "zone") onFinish(); },
+    mousedown(e) {
+      if (tool === "pencil") {
+        drawingStroke.current = true;
+        onStrokePoint({ lat: e.latlng.lat, lng: e.latlng.lng });
+      }
+    },
+    mousemove(e) {
+      if (tool === "pencil" && drawingStroke.current) {
+        onStrokePoint({ lat: e.latlng.lat, lng: e.latlng.lng });
+      }
+    },
+    mouseup() {
+      if (tool === "pencil" && drawingStroke.current) {
+        drawingStroke.current = false;
+        onStrokeEnd();
+      }
+    },
   });
   return null;
 }
 
-function MapRefBridge({ mapRef }: { mapRef: React.MutableRefObject<L.Map | null> }) {
+function MapRefBridge({ mapRef, dragging }: { mapRef: React.MutableRefObject<L.Map | null>; dragging: boolean; }) {
   const map = useMap();
   useEffect(() => { mapRef.current = map; }, [map, mapRef]);
+  useEffect(() => {
+    if (dragging) { map.dragging.disable(); }
+    else { map.dragging.enable(); }
+  }, [map, dragging]);
   return null;
 }
 
 export default function MapPanel({
-  intervinientes, stickers, zonas, isMando,
+  intervinientes, stickers, zonas, trazos, focos, isMando,
   onDropSticker, onMoveSticker, onContextSticker, onCreateZona, onDeleteZona,
+  onCreateTrazo, onDeleteTrazo, onCreateFoco, onMoveFoco, onOpenFoco,
 }: Props) {
   const mapRef = useRef<L.Map | null>(null);
   const wrapRef = useRef<HTMLDivElement | null>(null);
-  const [drawing, setDrawing] = useState(false);
+  const [tool, setTool] = useState<Tool>("select");
   const [draftPoints, setDraftPoints] = useState<{ lat: number; lng: number }[]>([]);
+  const [strokePts, setStrokePts] = useState<{ lat: number; lng: number }[]>([]);
   const [drawColor, setDrawColor] = useState(ZONA_COLORS[0]);
+  const [penColor, setPenColor] = useState(TRAZO_COLORS[1]);
 
   const visibleStickers = useMemo(() => stickers.filter(s => s.panel === "mapa" && !s.removed && s.lat != null && s.lng != null), [stickers]);
+  const mapTrazos = useMemo(() => trazos.filter(t => t.panel === "mapa"), [trazos]);
+  const mapFocos = useMemo(() => focos.filter(f => f.panel === "mapa" && f.lat != null && f.lng != null), [focos]);
 
   function handleDrop(e: React.DragEvent) {
     e.preventDefault();
@@ -68,27 +123,63 @@ export default function MapPanel({
     onDropSticker(intId, ll.lat, ll.lng);
   }
 
-  function finishDraw() {
+  function finishZone() {
     if (draftPoints.length >= 3) onCreateZona(draftPoints, drawColor);
     setDraftPoints([]);
-    setDrawing(false);
+    setTool("select");
   }
 
+  function onStrokePoint(p: { lat: number; lng: number }) {
+    setStrokePts(prev => [...prev, p]);
+  }
+  function onStrokeEnd() {
+    setStrokePts(prev => {
+      if (prev.length >= 2) onCreateTrazo(prev, penColor);
+      return [];
+    });
+  }
+
+  function handleMapClick(e: React.MouseEvent) {
+    if (tool !== "select") return;
+    // foco placement removed; foco via toolbar button at map center
+  }
+
+  function addFocoAtCenter() {
+    if (!mapRef.current) return;
+    const c = mapRef.current.getCenter();
+    onCreateFoco(c.lat, c.lng);
+  }
+
+  const drawing = tool === "pencil" || tool === "zone";
+
   return (
-    <div ref={wrapRef} className="relative h-full w-full" onDragOver={e => e.preventDefault()} onDrop={handleDrop}>
-      <MapContainer center={RIVAS_CENTER} zoom={RIVAS_ZOOM} className="h-full w-full" doubleClickZoom={!drawing} style={{ background: "#0a0a0a" }}>
-        <MapRefBridge mapRef={mapRef} />
+    <div ref={wrapRef} className="relative h-full w-full" onDragOver={e => e.preventDefault()} onDrop={handleDrop} onClick={handleMapClick}>
+      <MapContainer center={RIVAS_CENTER} zoom={RIVAS_ZOOM} className="h-full w-full" doubleClickZoom={tool !== "zone"} style={{ background: "#0a0a0a", cursor: drawing ? "crosshair" : undefined }}>
+        <MapRefBridge mapRef={mapRef} dragging={drawing} />
         <TileLayer
           url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
           attribution='&copy; OpenStreetMap &copy; CARTO'
         />
-        <DrawHandler active={drawing} onPoint={p => setDraftPoints(prev => [...prev, p])} onFinish={finishDraw} />
+        <DrawHandler tool={tool} onPoint={p => setDraftPoints(prev => [...prev, p])} onFinish={finishZone} onStrokePoint={onStrokePoint} onStrokeEnd={onStrokeEnd} />
 
         {zonas.map(z => (
           <Polygon key={z.id} positions={z.puntos.map(p => [p.lat, p.lng]) as any} pathOptions={{ color: z.color, fillColor: z.color, fillOpacity: 0.18, weight: 2 }}
-            eventHandlers={{ contextmenu: () => { if (isMando && confirm(`Eliminar zona "${z.nombre}"?`)) onDeleteZona(z.id); } }} />
+            eventHandlers={{
+              click: () => { if (tool === "eraser" && confirm(`Eliminar zona "${z.nombre}"?`)) onDeleteZona(z.id); },
+              contextmenu: () => { if (isMando && confirm(`Eliminar zona "${z.nombre}"?`)) onDeleteZona(z.id); },
+            }} />
         ))}
-        {drawing && draftPoints.length > 0 && (
+
+        {mapTrazos.map(t => (
+          <Polyline key={t.id} positions={(t.puntos as any[]).map(p => [p.lat, p.lng]) as any}
+            pathOptions={{ color: t.color, weight: 3, opacity: 0.9 }}
+            eventHandlers={{
+              click: () => { if (tool === "eraser") onDeleteTrazo(t.id); },
+              contextmenu: () => { if (isMando && confirm("Eliminar trazo?")) onDeleteTrazo(t.id); },
+            }} />
+        ))}
+
+        {tool === "zone" && draftPoints.length > 0 && (
           <>
             <Polyline positions={draftPoints.map(p => [p.lat, p.lng]) as any} pathOptions={{ color: drawColor, weight: 2, dashArray: "4 4" }} />
             {draftPoints.map((p, i) => (
@@ -96,6 +187,18 @@ export default function MapPanel({
             ))}
           </>
         )}
+        {tool === "pencil" && strokePts.length > 1 && (
+          <Polyline positions={strokePts.map(p => [p.lat, p.lng]) as any} pathOptions={{ color: penColor, weight: 3, dashArray: "2 4" }} />
+        )}
+
+        {mapFocos.map(f => (
+          <Marker key={f.id} position={[f.lat!, f.lng!]} icon={focoIcon(f)} draggable={tool === "select"}
+            eventHandlers={{
+              dragend: (e) => { const ll = (e.target as L.Marker).getLatLng(); onMoveFoco(f.id, ll.lat, ll.lng); },
+              dblclick: () => onOpenFoco(f),
+              click: () => { if (tool === "eraser") onOpenFoco(f); },
+            }} />
+        ))}
 
         {visibleStickers.map(s => {
           const inter = intervinientes.find(i => i.id === s.interviniente_id);
@@ -104,7 +207,7 @@ export default function MapPanel({
             <Marker
               key={s.id}
               position={[s.lat!, s.lng!]}
-              draggable={s.clave !== "C0"}
+              draggable={s.clave !== "C0" && tool === "select"}
               icon={stickerIcon(inter, s)}
               eventHandlers={{
                 dragend: (e) => { const ll = (e.target as L.Marker).getLatLng(); onMoveSticker(s, ll.lat, ll.lng); },
@@ -124,27 +227,38 @@ export default function MapPanel({
         })}
       </MapContainer>
 
-      {/* Drawing toolbar */}
-      {isMando && (
-        <div className="absolute top-3 left-3 z-[1000] bg-card border rounded-md shadow-xl p-2 flex items-center gap-2">
-          {!drawing ? (
-            <Button size="sm" variant="secondary" onClick={() => { setDrawing(true); setDraftPoints([]); }}>
-              <Pencil className="w-3.5 h-3.5 mr-1" /> Dibujar zona
-            </Button>
-          ) : (
-            <>
-              <div className="flex items-center gap-1">
-                {ZONA_COLORS.map(c => (
-                  <button key={c} onClick={() => setDrawColor(c)} className={`w-5 h-5 rounded border-2 ${drawColor === c ? "border-white" : "border-transparent"}`} style={{ background: c }} />
-                ))}
-              </div>
-              <span className="text-[10px] text-muted-foreground">{draftPoints.length} pts · doble clic para cerrar</span>
-              <Button size="sm" variant="default" onClick={finishDraw} disabled={draftPoints.length < 3}><Check className="w-3.5 h-3.5" /></Button>
-              <Button size="sm" variant="ghost" onClick={() => { setDrawing(false); setDraftPoints([]); }}><X className="w-3.5 h-3.5" /></Button>
-            </>
-          )}
+      {/* Toolbar */}
+      <div className="absolute top-3 left-3 z-[1000] bg-card border rounded-md shadow-xl p-2 flex flex-col gap-2">
+        <div className="flex items-center gap-1">
+          <ToolBtn active={tool === "select"} onClick={() => { setTool("select"); setDraftPoints([]); }} title="Seleccionar"><MousePointer2 className="w-3.5 h-3.5" /></ToolBtn>
+          <ToolBtn active={tool === "pencil"} onClick={() => { setTool("pencil"); setDraftPoints([]); }} title="Lápiz"><Pen className="w-3.5 h-3.5" /></ToolBtn>
+          <ToolBtn active={tool === "eraser"} onClick={() => { setTool("eraser"); setDraftPoints([]); }} title="Goma (clic en trazo/zona/foco)"><Eraser className="w-3.5 h-3.5" /></ToolBtn>
+          {isMando && <ToolBtn active={tool === "zone"} onClick={() => { setTool("zone"); setDraftPoints([]); }} title="Dibujar zona"><Pencil className="w-3.5 h-3.5" /></ToolBtn>}
+          <ToolBtn active={false} onClick={addFocoAtCenter} title="Añadir foco"><Flame className="w-3.5 h-3.5 text-red-500" /></ToolBtn>
         </div>
-      )}
+        {tool === "pencil" && (
+          <div className="flex items-center gap-1">
+            {TRAZO_COLORS.map(c => (
+              <button key={c} onClick={() => setPenColor(c)} className={`w-5 h-5 rounded border-2 ${penColor === c ? "border-white" : "border-transparent"}`} style={{ background: c }} />
+            ))}
+          </div>
+        )}
+        {tool === "zone" && (
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1">
+              {ZONA_COLORS.map(c => (
+                <button key={c} onClick={() => setDrawColor(c)} className={`w-5 h-5 rounded border-2 ${drawColor === c ? "border-white" : "border-transparent"}`} style={{ background: c }} />
+              ))}
+            </div>
+            <span className="text-[10px] text-muted-foreground">{draftPoints.length} pts · 2× clic cierra</span>
+            <Button size="sm" variant="default" onClick={finishZone} disabled={draftPoints.length < 3}><Check className="w-3.5 h-3.5" /></Button>
+            <Button size="sm" variant="ghost" onClick={() => { setTool("select"); setDraftPoints([]); }}><X className="w-3.5 h-3.5" /></Button>
+          </div>
+        )}
+        {tool === "eraser" && (
+          <div className="text-[10px] text-muted-foreground">Clic en trazo o zona para eliminarlo</div>
+        )}
+      </div>
 
       {/* Zones list */}
       {zonas.length > 0 && (
@@ -166,5 +280,13 @@ export default function MapPanel({
         </div>
       )}
     </div>
+  );
+}
+
+function ToolBtn({ active, onClick, title, children }: { active: boolean; onClick: () => void; title: string; children: React.ReactNode; }) {
+  return (
+    <button onClick={onClick} title={title} className={`w-8 h-8 flex items-center justify-center rounded border ${active ? "bg-primary text-primary-foreground border-primary" : "bg-secondary border-border hover:bg-accent"}`}>
+      {children}
+    </button>
   );
 }
