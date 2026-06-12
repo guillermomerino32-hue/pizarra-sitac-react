@@ -4,8 +4,9 @@ import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/integrations/supabase/client";
 import {
   CLAVES_LOG, CLAVES_VISUALES, CLAVE_DESCRIPCIONES, FUNCION_COLORS, FUNCION_LABELS,
-  type Clave, type Funcion, type Interviniente, type Servicio, type Sticker, type Tipo,
+  type Clave, type Funcion, type Interviniente, type Servicio, type Sticker, type Tipo, type Zona,
 } from "@/lib/domain";
+import MapPanel from "@/components/MapPanel";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -32,6 +33,7 @@ function ServicioScreen() {
   const [intervinientes, setIntervinientes] = useState<Interviniente[]>([]);
   const [stickers, setStickers] = useState<Sticker[]>([]);
   const [logs, setLogs] = useState<any[]>([]);
+  const [zonas, setZonas] = useState<Zona[]>([]);
   const [logOpen, setLogOpen] = useState(true);
   const [addOpen, setAddOpen] = useState(false);
   const [contextSticker, setContextSticker] = useState<Sticker | null>(null);
@@ -57,14 +59,16 @@ function ServicioScreen() {
     if (!servicio) return;
     const sid = servicio.id;
     (async () => {
-      const [i, s, l] = await Promise.all([
+      const [i, s, l, z] = await Promise.all([
         supabase.from("intervinientes").select("*").eq("servicio_id", sid).order("created_at"),
         supabase.from("stickers").select("*").eq("servicio_id", sid),
         supabase.from("claves_log").select("*").eq("servicio_id", sid).order("created_at", { ascending: true }),
+        (supabase.from as any)("zonas").select("*").eq("servicio_id", sid).order("created_at"),
       ]);
       setIntervinientes((i.data as any) ?? []);
       setStickers((s.data as any) ?? []);
       setLogs(l.data ?? []);
+      setZonas((z.data as any) ?? []);
     })();
 
     const ch = supabase.channel(`sv-${sid}`)
@@ -76,6 +80,9 @@ function ServicioScreen() {
       })
       .on("postgres_changes", { event: "*", schema: "public", table: "claves_log", filter: `servicio_id=eq.${sid}` }, (p) => {
         if (p.eventType === "INSERT") setLogs(prev => [...prev, p.new]);
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "zonas", filter: `servicio_id=eq.${sid}` }, (p) => {
+        setZonas(prev => upsertOrDelete(prev, p));
       })
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "servicios", filter: `id=eq.${sid}` }, (p) => {
         const updated = p.new as any;
@@ -96,19 +103,13 @@ function ServicioScreen() {
     return m;
   }, [stickers, panel]);
 
-  function intStatus(i: Interviniente): { label: string; dot: string; placedHere: boolean; blocked: boolean } {
+  function intStatus(i: Interviniente): { label: string; dot: string; placedHere: boolean } {
     const placedHere = stickersByInt.has(i.id);
-    // Check all stickers (any panel) for special blocked statuses
-    const all = stickers.filter(s => s.interviniente_id === i.id);
-    const c7 = all.find(s => s.clave === "C7" && s.removed);
-    const c4 = all.find(s => s.clave === "C4" && s.removed);
-    if (c7) return { label: "Descanso", dot: "#6b7280", placedHere, blocked: true };
-    if (c4) return { label: "En traslado a hospital", dot: "#f59e0b", placedHere, blocked: true };
     if (placedHere) {
       const st = stickersByInt.get(i.id)!;
-      return { label: st.clave, dot: FUNCION_COLORS[i.funcion], placedHere, blocked: false };
+      return { label: st.clave, dot: FUNCION_COLORS[i.funcion], placedHere };
     }
-    return { label: "Disponible", dot: "#22c55e", placedHere: false, blocked: false };
+    return { label: "Disponible", dot: "#22c55e", placedHere: false };
   }
 
   async function handleDrop(e: React.DragEvent) {
@@ -177,6 +178,43 @@ function ServicioScreen() {
     await logClave(inter.indicativo_recurso, "C2");
   }
 
+  async function dropOnMap(intId: string, lat: number, lng: number) {
+    if (!servicio) return;
+    const interviniente = intervinientes.find(i => i.id === intId);
+    if (!interviniente) return;
+    const existing = stickers.find(s => s.interviniente_id === intId && s.panel === "mapa");
+    const now = new Date().toISOString();
+    if (existing) {
+      await supabase.from("stickers").update({ lat, lng, clave: "C2", dashed: true, removed: false, c2_at: now, c3_at: null, updated_at: now } as any).eq("id", existing.id);
+    } else {
+      const { error } = await supabase.from("stickers").insert({
+        servicio_id: servicio.id, interviniente_id: intId, panel: "mapa", x: 0, y: 0, lat, lng, clave: "C2", dashed: true,
+      } as any);
+      if (error) { toast.error(error.message); return; }
+    }
+    await logClave(interviniente.indicativo_recurso, "C2");
+  }
+
+  async function moveStickerMap(sticker: Sticker, lat: number, lng: number) {
+    const inter = intervinientes.find(i => i.id === sticker.interviniente_id);
+    if (!inter) return;
+    const now = new Date().toISOString();
+    await supabase.from("stickers").update({ lat, lng, clave: "C2", dashed: true, c2_at: now, c3_at: null, updated_at: now } as any).eq("id", sticker.id);
+    await logClave(inter.indicativo_recurso, "C2");
+  }
+
+  async function createZona(puntos: { lat: number; lng: number }[], color: string) {
+    if (!servicio) return;
+    const nombre = `Zona ${zonas.length + 1}`;
+    const { error } = await (supabase.from as any)("zonas").insert({
+      servicio_id: servicio.id, nombre, color, puntos, created_by: session?.indicativo,
+    });
+    if (error) toast.error(error.message);
+  }
+  async function deleteZona(id: string) {
+    await (supabase.from as any)("zonas").delete().eq("id", id);
+  }
+
   async function finalizarServicio() {
     if (!servicio) return;
     await supabase.from("historial").insert({ numero: servicio.numero, resumen: { intervinientes: intervinientes.length, claves: logs.length } } as any);
@@ -232,7 +270,7 @@ function ServicioScreen() {
               {intervinientes.length === 0 && <div className="text-xs text-muted-foreground text-center p-4">Sin intervinientes registrados.</div>}
               {intervinientes.map(i => {
                 const st = intStatus(i);
-                const draggable = !st.placedHere && !st.blocked;
+                const draggable = !st.placedHere;
                 return (
                   <div key={i.id}
                     draggable={draggable}
@@ -242,7 +280,10 @@ function ServicioScreen() {
                     <div className="flex items-start gap-2">
                       <StickerPreview interviniente={i} />
                       <div className="flex-1 min-w-0">
-                        <div className="font-mono font-bold text-sm leading-tight truncate">{i.indicativo_recurso}</div>
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-mono font-bold text-sm leading-tight truncate">{i.indicativo_recurso}</span>
+                          <span className="text-[9px] uppercase tracking-wider font-bold px-1.5 py-0.5 rounded text-black" style={{ background: FUNCION_COLORS[i.funcion] }}>{FUNCION_LABELS[i.funcion]}</span>
+                        </div>
                         <div className="text-[10px] text-muted-foreground truncate">{i.indicativo_intervinientes}</div>
                         <div className="flex items-center gap-1 mt-1">
                           <span className="inline-block w-2 h-2 rounded-full" style={{ background: st.dot }} />
@@ -260,13 +301,19 @@ function ServicioScreen() {
         {/* Board area */}
         <div className="flex-1 relative overflow-hidden">
           {panel === "mapa" ? (
-            <div className="h-full flex items-center justify-center text-center p-8 tactical-bg">
-              <div>
-                <MapIcon className="w-12 h-12 text-muted-foreground/40 mx-auto mb-2" />
-                <p className="text-sm text-muted-foreground">Panel Mapa (Leaflet) — próxima fase.</p>
-                <p className="text-xs text-muted-foreground mt-1">La pizarra está totalmente operativa.</p>
-              </div>
-            </div>
+            <MapPanel
+              servicioId={servicio.id}
+              intervinientes={intervinientes}
+              stickers={stickers}
+              zonas={zonas}
+              isMando={isMando}
+              currentIndicativo={session?.indicativo ?? ""}
+              onDropSticker={dropOnMap}
+              onMoveSticker={moveStickerMap}
+              onContextSticker={(s, x, y) => { setContextSticker(s); setContextPos({ x, y }); }}
+              onCreateZona={createZona}
+              onDeleteZona={deleteZona}
+            />
           ) : (
             <div
               ref={boardRef}

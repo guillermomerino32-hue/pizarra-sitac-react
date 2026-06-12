@@ -210,6 +210,39 @@ export type Database = {
           },
         ]
       }
+      zonas: {
+        Row: {
+          color: string
+          created_at: string
+          created_by: string | null
+          id: string
+          nombre: string
+          puntos: Json
+          servicio_id: string
+          updated_at: string
+        }
+        Insert: {
+          color?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          nombre?: string
+          puntos?: Json
+          servicio_id: string
+          updated_at?: string
+        }
+        Update: {
+          color?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          nombre?: string
+          puntos?: Json
+          servicio_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

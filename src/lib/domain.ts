@@ -24,7 +24,7 @@ export type Subtipo = "ambulancia" | "cardio" | null;
 
 export const FUNCION_COLORS: Record<Funcion, string> = {
   extincion: "#dc2626",
-  rescate: "#dc2626",
+  rescate: "#f97316",
   sanitario: "#16a34a",
   logistico: "#2563eb",
   mando: "#9333ea",
@@ -113,3 +113,20 @@ export interface ClaveLog {
   descripcion: string;
   created_at: string;
 }
+
+export interface Zona {
+  id: string;
+  servicio_id: string;
+  nombre: string;
+  color: string;
+  puntos: { lat: number; lng: number }[];
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+// Rivas-Vaciamadrid center
+export const RIVAS_CENTER: [number, number] = [40.3260, -3.5183];
+export const RIVAS_ZOOM = 14;
+
+export const ZONA_COLORS = ["#dc2626","#f97316","#eab308","#16a34a","#2563eb","#9333ea"];
