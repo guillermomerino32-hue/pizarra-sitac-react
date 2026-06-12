@@ -81,6 +81,9 @@ function ServicioScreen() {
       .on("postgres_changes", { event: "*", schema: "public", table: "claves_log", filter: `servicio_id=eq.${sid}` }, (p) => {
         if (p.eventType === "INSERT") setLogs(prev => [...prev, p.new]);
       })
+      .on("postgres_changes", { event: "*", schema: "public", table: "zonas", filter: `servicio_id=eq.${sid}` }, (p) => {
+        setZonas(prev => upsertOrDelete(prev, p));
+      })
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "servicios", filter: `id=eq.${sid}` }, (p) => {
         const updated = p.new as any;
         if (updated.estado !== "activo") {
