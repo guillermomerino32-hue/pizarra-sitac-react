@@ -14,7 +14,202 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      claves_log: {
+        Row: {
+          clave: string
+          created_at: string
+          descripcion: string
+          id: string
+          indicativo_recurso: string
+          servicio_id: string
+        }
+        Insert: {
+          clave: string
+          created_at?: string
+          descripcion: string
+          id?: string
+          indicativo_recurso: string
+          servicio_id: string
+        }
+        Update: {
+          clave?: string
+          created_at?: string
+          descripcion?: string
+          id?: string
+          indicativo_recurso?: string
+          servicio_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "claves_log_servicio_id_fkey"
+            columns: ["servicio_id"]
+            isOneToOne: false
+            referencedRelation: "servicios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      historial: {
+        Row: {
+          fecha: string
+          id: string
+          numero: number
+          pdf_url: string | null
+          resumen: Json | null
+        }
+        Insert: {
+          fecha?: string
+          id?: string
+          numero: number
+          pdf_url?: string | null
+          resumen?: Json | null
+        }
+        Update: {
+          fecha?: string
+          id?: string
+          numero?: number
+          pdf_url?: string | null
+          resumen?: Json | null
+        }
+        Relationships: []
+      }
+      intervinientes: {
+        Row: {
+          created_at: string
+          funcion: string
+          id: string
+          indicativo_intervinientes: string
+          indicativo_recurso: string
+          servicio_id: string
+          subtipo: string | null
+          tipo: string
+        }
+        Insert: {
+          created_at?: string
+          funcion: string
+          id?: string
+          indicativo_intervinientes: string
+          indicativo_recurso: string
+          servicio_id: string
+          subtipo?: string | null
+          tipo: string
+        }
+        Update: {
+          created_at?: string
+          funcion?: string
+          id?: string
+          indicativo_intervinientes?: string
+          indicativo_recurso?: string
+          servicio_id?: string
+          subtipo?: string | null
+          tipo?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "intervinientes_servicio_id_fkey"
+            columns: ["servicio_id"]
+            isOneToOne: false
+            referencedRelation: "servicios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      servicios: {
+        Row: {
+          created_at: string
+          estado: string
+          finished_at: string | null
+          id: string
+          mando_indicativo: string | null
+          numero: number
+        }
+        Insert: {
+          created_at?: string
+          estado?: string
+          finished_at?: string | null
+          id?: string
+          mando_indicativo?: string | null
+          numero: number
+        }
+        Update: {
+          created_at?: string
+          estado?: string
+          finished_at?: string | null
+          id?: string
+          mando_indicativo?: string | null
+          numero?: number
+        }
+        Relationships: []
+      }
+      stickers: {
+        Row: {
+          c2_at: string | null
+          c3_at: string | null
+          clave: string
+          created_at: string
+          dashed: boolean
+          id: string
+          interviniente_id: string
+          lat: number | null
+          lng: number | null
+          panel: string
+          removed: boolean
+          servicio_id: string
+          updated_at: string
+          x: number
+          y: number
+        }
+        Insert: {
+          c2_at?: string | null
+          c3_at?: string | null
+          clave?: string
+          created_at?: string
+          dashed?: boolean
+          id?: string
+          interviniente_id: string
+          lat?: number | null
+          lng?: number | null
+          panel: string
+          removed?: boolean
+          servicio_id: string
+          updated_at?: string
+          x?: number
+          y?: number
+        }
+        Update: {
+          c2_at?: string | null
+          c3_at?: string | null
+          clave?: string
+          created_at?: string
+          dashed?: boolean
+          id?: string
+          interviniente_id?: string
+          lat?: number | null
+          lng?: number | null
+          panel?: string
+          removed?: boolean
+          servicio_id?: string
+          updated_at?: string
+          x?: number
+          y?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stickers_interviniente_id_fkey"
+            columns: ["interviniente_id"]
+            isOneToOne: false
+            referencedRelation: "intervinientes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stickers_servicio_id_fkey"
+            columns: ["servicio_id"]
+            isOneToOne: false
+            referencedRelation: "servicios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
