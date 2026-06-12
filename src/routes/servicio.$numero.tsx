@@ -226,7 +226,7 @@ function ServicioScreen() {
               {intervinientes.length === 0 && <div className="text-xs text-muted-foreground text-center p-4">Sin intervinientes registrados.</div>}
               {intervinientes.map(i => {
                 const st = intStatus(i);
-                const draggable = !st.placedHere && !st.blocked;
+                const draggable = !st.placedHere;
                 return (
                   <div key={i.id}
                     draggable={draggable}
@@ -236,7 +236,10 @@ function ServicioScreen() {
                     <div className="flex items-start gap-2">
                       <StickerPreview interviniente={i} />
                       <div className="flex-1 min-w-0">
-                        <div className="font-mono font-bold text-sm leading-tight truncate">{i.indicativo_recurso}</div>
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-mono font-bold text-sm leading-tight truncate">{i.indicativo_recurso}</span>
+                          <span className="text-[9px] uppercase tracking-wider font-bold px-1.5 py-0.5 rounded text-black" style={{ background: FUNCION_COLORS[i.funcion] }}>{FUNCION_LABELS[i.funcion]}</span>
+                        </div>
                         <div className="text-[10px] text-muted-foreground truncate">{i.indicativo_intervinientes}</div>
                         <div className="flex items-center gap-1 mt-1">
                           <span className="inline-block w-2 h-2 rounded-full" style={{ background: st.dot }} />
