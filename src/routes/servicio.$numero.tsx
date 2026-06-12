@@ -59,14 +59,16 @@ function ServicioScreen() {
     if (!servicio) return;
     const sid = servicio.id;
     (async () => {
-      const [i, s, l] = await Promise.all([
+      const [i, s, l, z] = await Promise.all([
         supabase.from("intervinientes").select("*").eq("servicio_id", sid).order("created_at"),
         supabase.from("stickers").select("*").eq("servicio_id", sid),
         supabase.from("claves_log").select("*").eq("servicio_id", sid).order("created_at", { ascending: true }),
+        (supabase.from as any)("zonas").select("*").eq("servicio_id", sid).order("created_at"),
       ]);
       setIntervinientes((i.data as any) ?? []);
       setStickers((s.data as any) ?? []);
       setLogs(l.data ?? []);
+      setZonas((z.data as any) ?? []);
     })();
 
     const ch = supabase.channel(`sv-${sid}`)
