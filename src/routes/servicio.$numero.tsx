@@ -96,19 +96,13 @@ function ServicioScreen() {
     return m;
   }, [stickers, panel]);
 
-  function intStatus(i: Interviniente): { label: string; dot: string; placedHere: boolean; blocked: boolean } {
+  function intStatus(i: Interviniente): { label: string; dot: string; placedHere: boolean } {
     const placedHere = stickersByInt.has(i.id);
-    // Check all stickers (any panel) for special blocked statuses
-    const all = stickers.filter(s => s.interviniente_id === i.id);
-    const c7 = all.find(s => s.clave === "C7" && s.removed);
-    const c4 = all.find(s => s.clave === "C4" && s.removed);
-    if (c7) return { label: "Descanso", dot: "#6b7280", placedHere, blocked: true };
-    if (c4) return { label: "En traslado a hospital", dot: "#f59e0b", placedHere, blocked: true };
     if (placedHere) {
       const st = stickersByInt.get(i.id)!;
-      return { label: st.clave, dot: FUNCION_COLORS[i.funcion], placedHere, blocked: false };
+      return { label: st.clave, dot: FUNCION_COLORS[i.funcion], placedHere };
     }
-    return { label: "Disponible", dot: "#22c55e", placedHere: false, blocked: false };
+    return { label: "Disponible", dot: "#22c55e", placedHere: false };
   }
 
   async function handleDrop(e: React.DragEvent) {
