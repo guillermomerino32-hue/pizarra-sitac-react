@@ -19,6 +19,7 @@ function MainScreen() {
   const navigate = useNavigate();
   const [historial, setHistorial] = useState<any[]>([]);
   const [activos, setActivos] = useState<Servicio[]>([]);
+  const [finalizados, setFinalizados] = useState<Servicio[]>([]);
   const [newOpen, setNewOpen] = useState(false);
   const [joinOpen, setJoinOpen] = useState(false);
   const [numero, setNumero] = useState("");
@@ -27,15 +28,27 @@ function MainScreen() {
     if (!session) navigate({ to: "/" });
   }, [session, navigate]);
 
+  async function reloadServicios() {
+    const { data: act } = await supabase.from("servicios").select("*").eq("estado", "activo").order("created_at", { ascending: false });
+    setActivos((act as any) ?? []);
+    const { data: fin } = await supabase.from("servicios").select("*").eq("estado", "finalizado").order("finished_at", { ascending: false }).limit(20);
+    setFinalizados((fin as any) ?? []);
+    const { data: hist } = await supabase.from("historial").select("*").order("fecha", { ascending: false }).limit(50);
+    setHistorial(hist ?? []);
+  }
+
   useEffect(() => {
     if (!session) return;
-    (async () => {
-      const { data: act } = await supabase.from("servicios").select("*").eq("estado", "activo").order("created_at", { ascending: false });
-      setActivos((act as any) ?? []);
-      const { data: hist } = await supabase.from("historial").select("*").order("fecha", { ascending: false }).limit(50);
-      setHistorial(hist ?? []);
-    })();
+    reloadServicios();
   }, [session]);
+
+  async function reabrirServicio(s: Servicio) {
+    const { data: exists } = await supabase.from("servicios").select("id").eq("numero", s.numero).eq("estado", "activo").maybeSingle();
+    if (exists) { toast.error("Ya hay un servicio activo con ese número"); return; }
+    await supabase.from("servicios").update({ estado: "activo", finished_at: null } as any).eq("id", s.id);
+    toast.success(`Servicio #${s.numero} reabierto`);
+    navigate({ to: "/servicio/$numero", params: { numero: String(s.numero) } });
+  }
 
   if (!session) return null;
 
@@ -106,6 +119,23 @@ function MainScreen() {
                   <div className="text-2xl font-mono font-bold text-primary">{s.numero}</div>
                   <div className="text-xs text-muted-foreground">{new Date(s.created_at).toLocaleString("es-ES")}</div>
                 </button>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {session.role === "mando" && finalizados.length > 0 && (
+          <section>
+            <h3 className="text-xs uppercase tracking-widest text-muted-foreground mb-3">Servicios finalizados (reabrir)</h3>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+              {finalizados.map(s => (
+                <div key={s.id} className="bg-card border rounded p-3 flex items-center justify-between gap-2">
+                  <div>
+                    <div className="text-2xl font-mono font-bold text-muted-foreground">#{s.numero}</div>
+                    <div className="text-[10px] text-muted-foreground">{s.finished_at ? new Date(s.finished_at).toLocaleString("es-ES") : ""}</div>
+                  </div>
+                  <Button size="sm" variant="secondary" onClick={() => reabrirServicio(s)}>Reabrir</Button>
+                </div>
               ))}
             </div>
           </section>

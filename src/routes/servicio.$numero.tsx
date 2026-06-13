@@ -116,6 +116,7 @@ function ServicioScreen() {
   }, [servicio, navigate]);
 
   const isMando = session?.role === "mando";
+  const readonly = session?.role === "voluntario";
   const stickersByInt = useMemo(() => {
     const m = new Map<string, Sticker>();
     stickers.filter(s => s.panel === panel && !s.removed).forEach(s => m.set(s.interviniente_id, s));
@@ -350,7 +351,7 @@ function ServicioScreen() {
               {intervinientes.length === 0 && <div className="text-xs text-muted-foreground text-center p-4">Sin intervinientes registrados.</div>}
               {intervinientes.map(i => {
                 const st = intStatus(i);
-                const draggable = !st.blocked;
+                const draggable = !st.blocked && !readonly;
                 return (
                   <div key={i.id}
                     draggable={draggable}
@@ -387,7 +388,8 @@ function ServicioScreen() {
               zonas={zonas}
               trazos={trazos}
               focos={focos}
-              isMando={isMando}
+              isMando={isMando && !readonly}
+              readonly={readonly}
               currentIndicativo={session?.indicativo ?? ""}
               onDropSticker={dropOnMap}
               onMoveSticker={moveStickerMap}
@@ -407,11 +409,11 @@ function ServicioScreen() {
               intervinientes={intervinientes}
               trazos={pizarraTrazos}
               focos={pizarraFocos}
-              tool={tool}
+              tool={readonly ? "select" : tool}
               penColor={penColor}
-              onDrop={handleDrop}
+              onDrop={readonly ? (e) => e.preventDefault() : handleDrop}
               onMoveSticker={moveSticker}
-              onContextSticker={(s, x, y) => { setContextSticker(s); setContextPos({ x, y }); }}
+              onContextSticker={(s, x, y) => { if (!readonly) { setContextSticker(s); setContextPos({ x, y }); } }}
               onOpenInter={(i) => setEditInter(i)}
               onCreateTrazo={createTrazoPizarra}
               onDeleteTrazo={deleteTrazo}
@@ -419,11 +421,12 @@ function ServicioScreen() {
               onMoveFoco={moveFocoPizarra}
               onOpenFoco={(f) => setEditFoco(f)}
               numero={servicio.numero}
+              readonly={readonly}
             />
           )}
 
           {/* Toolbar pizarra */}
-          {panel === "pizarra" && (
+          {panel === "pizarra" && !readonly && (
             <div className="absolute top-3 left-3 z-30 bg-card border rounded-md shadow-xl p-2 flex flex-col gap-2">
               <div className="flex items-center gap-1">
                 <ToolBtn active={tool === "select"} onClick={() => setTool("select")} title="Seleccionar"><MousePointer2 className="w-3.5 h-3.5" /></ToolBtn>
@@ -443,6 +446,12 @@ function ServicioScreen() {
                 </div>
               )}
               {tool === "eraser" && <div className="text-[10px] text-muted-foreground">Clic en trazo/foco para borrar</div>}
+            </div>
+          )}
+
+          {readonly && (
+            <div className="absolute top-3 left-3 z-30 bg-card/80 border rounded-md shadow-xl px-3 py-1.5 text-[10px] uppercase tracking-widest text-muted-foreground">
+              Modo solo lectura · Voluntario
             </div>
           )}
 
@@ -514,7 +523,7 @@ function ToolBtn({ active, onClick, title, children }: { active: boolean; onClic
 function PizarraBoard({
   boardRef, stickers, intervinientes, trazos, focos, tool, penColor, numero,
   onDrop, onMoveSticker, onContextSticker, onOpenInter,
-  onCreateTrazo, onDeleteTrazo, onCreateFoco, onMoveFoco, onOpenFoco,
+  onCreateTrazo, onDeleteTrazo, onCreateFoco, onMoveFoco, onOpenFoco, readonly,
 }: {
   boardRef: React.MutableRefObject<HTMLDivElement | null>;
   stickers: Sticker[]; intervinientes: Interviniente[]; trazos: Trazo[]; focos: Foco[];
@@ -528,6 +537,7 @@ function PizarraBoard({
   onCreateFoco: (x: number, y: number) => void;
   onMoveFoco: (id: string, x: number, y: number) => void;
   onOpenFoco: (f: Foco) => void;
+  readonly?: boolean;
 }) {
   const [stroke, setStroke] = useState<{ x: number; y: number }[]>([]);
   const drawing = useRef(false);
@@ -619,7 +629,7 @@ function PizarraBoard({
           onMove={(x,y) => onMoveSticker(s, x, y)}
           onContext={(x,y) => onContextSticker(s, x, y)}
           onOpen={() => onOpenInter(i)}
-          disabled={tool !== "select"}
+          disabled={tool !== "select" || readonly}
         />;
       })}
 
