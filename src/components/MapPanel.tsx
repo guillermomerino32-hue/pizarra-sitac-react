@@ -268,7 +268,7 @@ export default function MapPanel({
                 <span className="w-3 h-3 rounded" style={{ background: z.color }} />
                 <span className="flex-1 truncate">{z.nombre}</span>
                 {isMando && (
-                  <button onClick={() => { if (confirm(`Eliminar "${z.nombre}"?`)) onDeleteZona(z.id); }} className="text-muted-foreground hover:text-destructive">
+                  <button onClick={() => onDeleteZona(z.id)} className="text-muted-foreground hover:text-destructive">
                     <Trash2 className="w-3 h-3" />
                   </button>
                 )}
