@@ -628,7 +628,7 @@ function PizarraBoard({
           onMove={(x,y) => onMoveSticker(s, x, y)}
           onContext={(x,y) => onContextSticker(s, x, y)}
           onOpen={() => onOpenInter(i)}
-          disabled={tool !== "select"}
+          disabled={tool !== "select" || readonly}
         />;
       })}
 
