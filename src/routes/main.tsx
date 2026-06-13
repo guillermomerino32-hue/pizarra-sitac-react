@@ -19,6 +19,7 @@ function MainScreen() {
   const navigate = useNavigate();
   const [historial, setHistorial] = useState<any[]>([]);
   const [activos, setActivos] = useState<Servicio[]>([]);
+  const [finalizados, setFinalizados] = useState<Servicio[]>([]);
   const [newOpen, setNewOpen] = useState(false);
   const [joinOpen, setJoinOpen] = useState(false);
   const [numero, setNumero] = useState("");
@@ -27,15 +28,27 @@ function MainScreen() {
     if (!session) navigate({ to: "/" });
   }, [session, navigate]);
 
+  async function reloadServicios() {
+    const { data: act } = await supabase.from("servicios").select("*").eq("estado", "activo").order("created_at", { ascending: false });
+    setActivos((act as any) ?? []);
+    const { data: fin } = await supabase.from("servicios").select("*").eq("estado", "finalizado").order("finished_at", { ascending: false }).limit(20);
+    setFinalizados((fin as any) ?? []);
+    const { data: hist } = await supabase.from("historial").select("*").order("fecha", { ascending: false }).limit(50);
+    setHistorial(hist ?? []);
+  }
+
   useEffect(() => {
     if (!session) return;
-    (async () => {
-      const { data: act } = await supabase.from("servicios").select("*").eq("estado", "activo").order("created_at", { ascending: false });
-      setActivos((act as any) ?? []);
-      const { data: hist } = await supabase.from("historial").select("*").order("fecha", { ascending: false }).limit(50);
-      setHistorial(hist ?? []);
-    })();
+    reloadServicios();
   }, [session]);
+
+  async function reabrirServicio(s: Servicio) {
+    const { data: exists } = await supabase.from("servicios").select("id").eq("numero", s.numero).eq("estado", "activo").maybeSingle();
+    if (exists) { toast.error("Ya hay un servicio activo con ese número"); return; }
+    await supabase.from("servicios").update({ estado: "activo", finished_at: null } as any).eq("id", s.id);
+    toast.success(`Servicio #${s.numero} reabierto`);
+    navigate({ to: "/servicio/$numero", params: { numero: String(s.numero) } });
+  }
 
   if (!session) return null;
 
