@@ -125,13 +125,19 @@ function ServicioScreen() {
   const pizarraTrazos = useMemo(() => trazos.filter(t => t.panel === "pizarra"), [trazos]);
   const pizarraFocos = useMemo(() => focos.filter(f => f.panel === "pizarra"), [focos]);
 
-  function intStatus(i: Interviniente): { label: string; dot: string; placedHere: boolean } {
-    const placedHere = stickersByInt.has(i.id);
-    if (placedHere) {
-      const st = stickersByInt.get(i.id)!;
-      return { label: st.clave, dot: FUNCION_COLORS[i.funcion], placedHere };
+  function intStatus(i: Interviniente): { label: string; dot: string; placedHere: boolean; blocked: boolean } {
+    const placed = stickersByInt.get(i.id);
+    if (placed) {
+      return { label: placed.clave, dot: FUNCION_COLORS[i.funcion], placedHere: true, blocked: true };
     }
-    return { label: "Disponible", dot: "#22c55e", placedHere: false };
+    const all = stickers
+      .filter(s => s.interviniente_id === i.id)
+      .sort((a, b) => (b.updated_at || "").localeCompare(a.updated_at || ""));
+    const last = all[0];
+    if (last && (last.clave === "C4" || last.clave === "C5")) {
+      return { label: `${last.clave} Hospital`, dot: "#eab308", placedHere: false, blocked: true };
+    }
+    return { label: "Disponible", dot: "#22c55e", placedHere: false, blocked: false };
   }
 
   async function handleDrop(e: React.DragEvent) {
@@ -177,6 +183,7 @@ function ServicioScreen() {
       case "C2": patch = { clave: "C2", dashed: true, c2_at: now }; break;
       case "C3": patch = { clave: "C3", dashed: false, c3_at: now }; break;
       case "C4": patch = { clave: "C4", removed: true }; break;
+      case "C5": patch = { clave: "C5", removed: true }; break;
       case "C6": patch = { clave: "C6", removed: true }; break;
       case "C7": patch = { clave: "C7", removed: true }; break;
       default: break;
@@ -224,7 +231,11 @@ function ServicioScreen() {
 
   async function createZona(puntos: { lat: number; lng: number }[], color: string) {
     if (!servicio) return;
-    const nombre = `Zona ${zonas.length + 1}`;
+    const c = color.toLowerCase();
+    const nombre = c === "#dc2626" ? "Zona Caliente"
+      : c === "#eab308" ? "Zona Templada"
+      : c === "#16a34a" ? "Zona Fría"
+      : `Zona ${zonas.length + 1}`;
     const { error } = await (supabase.from as any)("zonas").insert({
       servicio_id: servicio.id, nombre, color, puntos, created_by: session?.indicativo,
     });
@@ -321,6 +332,14 @@ function ServicioScreen() {
       </header>
 
       <div className="flex-1 flex overflow-hidden relative">
+        <button
+          onClick={() => setSidebarOpen(o => !o)}
+          title={sidebarOpen ? "Ocultar barra" : "Mostrar barra"}
+          className="absolute top-1/2 -translate-y-1/2 z-[1500] bg-card border border-border rounded-r-md shadow-lg w-6 h-12 flex items-center justify-center hover:bg-accent"
+          style={{ left: sidebarOpen ? "18rem" : 0 }}
+        >
+          {sidebarOpen ? <ChevronLeft className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+        </button>
         {sidebarOpen && (
           <aside className="w-72 border-r bg-sidebar text-sidebar-foreground flex flex-col overflow-hidden">
             <div className="p-3 border-b border-sidebar-border flex items-center justify-between">
@@ -331,7 +350,7 @@ function ServicioScreen() {
               {intervinientes.length === 0 && <div className="text-xs text-muted-foreground text-center p-4">Sin intervinientes registrados.</div>}
               {intervinientes.map(i => {
                 const st = intStatus(i);
-                const draggable = !st.placedHere;
+                const draggable = !st.blocked;
                 return (
                   <div key={i.id}
                     draggable={draggable}
@@ -558,17 +577,28 @@ function PizarraBoard({
           if (pts.length < 2) return null;
           const d = "M " + pts.map(p => `${p.x},${p.y}`).join(" L ");
           return (
-            <path
-              key={t.id}
-              d={d}
-              stroke={t.color}
-              strokeWidth={3}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              fill="none"
-              style={{ cursor: tool === "eraser" ? "pointer" : undefined, pointerEvents: tool === "eraser" ? "stroke" : "none" }}
-              onClick={() => { if (tool === "eraser") onDeleteTrazo(t.id); }}
-            />
+            <g key={t.id}>
+              <path
+                d={d}
+                stroke={t.color}
+                strokeWidth={3}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                fill="none"
+                style={{ pointerEvents: "none" }}
+              />
+              {tool === "eraser" && (
+                <path
+                  d={d}
+                  stroke="rgba(255,255,255,0.01)"
+                  strokeWidth={20}
+                  strokeLinecap="round"
+                  fill="none"
+                  style={{ cursor: "pointer", pointerEvents: "stroke" }}
+                  onClick={() => onDeleteTrazo(t.id)}
+                />
+              )}
+            </g>
           );
         })}
         {stroke.length > 1 && (
@@ -766,8 +796,8 @@ function StickerOnBoard({ sticker, interviniente, onMove, onContext, onOpen, dis
 function ClaveMenu({ x, y, onClose, onPick, onEdit }: { x: number; y: number; onClose: () => void; onPick: (c: Clave) => void; onEdit: () => void; }) {
   return (
     <>
-      <div className="absolute inset-0 z-30" onClick={onClose} />
-      <div className="absolute z-40 bg-popover text-popover-foreground border rounded-md shadow-2xl py-1 w-56 text-sm" style={{ left: Math.min(x, window.innerWidth - 240), top: Math.min(y, window.innerHeight - 400) }}>
+      <div className="absolute inset-0 z-[2000]" onClick={onClose} />
+      <div className="absolute z-[2001] bg-popover text-popover-foreground border rounded-md shadow-2xl py-1 w-56 text-sm" style={{ left: Math.min(x, window.innerWidth - 240), top: Math.min(y, window.innerHeight - 400) }}>
         <div className="px-3 py-1 text-[10px] uppercase tracking-widest text-muted-foreground">Claves visuales</div>
         {CLAVES_VISUALES.map(c => (
           <button key={c} onClick={() => onPick(c)} className="w-full text-left px-3 py-1.5 hover:bg-accent flex justify-between"><span className="font-mono font-bold">{c}</span><span className="text-muted-foreground text-xs">{CLAVE_DESCRIPCIONES[c]}</span></button>

@@ -108,6 +108,7 @@ export default function MapPanel({
   const [strokePts, setStrokePts] = useState<{ lat: number; lng: number }[]>([]);
   const [drawColor, setDrawColor] = useState(ZONA_COLORS[0]);
   const [penColor, setPenColor] = useState(TRAZO_COLORS[1]);
+  const [baseLayer, setBaseLayer] = useState<"dark" | "sat">("dark");
 
   const visibleStickers = useMemo(() => stickers.filter(s => s.panel === "mapa" && !s.removed && s.lat != null && s.lng != null), [stickers]);
   const mapTrazos = useMemo(() => trazos.filter(t => t.panel === "mapa"), [trazos]);
@@ -121,6 +122,14 @@ export default function MapPanel({
     const point = L.point(e.clientX - rect.left, e.clientY - rect.top);
     const ll = mapRef.current.containerPointToLatLng(point);
     onDropSticker(intId, ll.lat, ll.lng);
+  }
+
+  function zonaNameForColor(color: string) {
+    const c = color.toLowerCase();
+    if (c === "#dc2626") return "Zona Caliente";
+    if (c === "#eab308") return "Zona Templada";
+    if (c === "#16a34a") return "Zona Fría";
+    return `Zona ${zonas.length + 1}`;
   }
 
   function finishZone() {
@@ -156,26 +165,31 @@ export default function MapPanel({
     <div ref={wrapRef} className="relative h-full w-full" onDragOver={e => e.preventDefault()} onDrop={handleDrop} onClick={handleMapClick}>
       <MapContainer center={RIVAS_CENTER} zoom={RIVAS_ZOOM} className="h-full w-full" doubleClickZoom={tool !== "zone"} style={{ background: "#0a0a0a", cursor: drawing ? "crosshair" : undefined }}>
         <MapRefBridge mapRef={mapRef} dragging={drawing} />
-        <TileLayer
-          url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-          attribution='&copy; OpenStreetMap &copy; CARTO'
-        />
+        {baseLayer === "dark" ? (
+          <TileLayer
+            url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+            attribution='&copy; OpenStreetMap &copy; CARTO'
+          />
+        ) : (
+          <TileLayer
+            url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+            attribution='Tiles &copy; Esri'
+          />
+        )}
         <DrawHandler tool={tool} onPoint={p => setDraftPoints(prev => [...prev, p])} onFinish={finishZone} onStrokePoint={onStrokePoint} onStrokeEnd={onStrokeEnd} />
 
         {zonas.map(z => (
           <Polygon key={z.id} positions={z.puntos.map(p => [p.lat, p.lng]) as any} pathOptions={{ color: z.color, fillColor: z.color, fillOpacity: 0.18, weight: 2 }}
             eventHandlers={{
-              click: () => { if (tool === "eraser" && confirm(`Eliminar zona "${z.nombre}"?`)) onDeleteZona(z.id); },
-              contextmenu: () => { if (isMando && confirm(`Eliminar zona "${z.nombre}"?`)) onDeleteZona(z.id); },
+              click: () => { if (tool === "eraser") onDeleteZona(z.id); },
             }} />
         ))}
 
         {mapTrazos.map(t => (
           <Polyline key={t.id} positions={(t.puntos as any[]).map(p => [p.lat, p.lng]) as any}
-            pathOptions={{ color: t.color, weight: 3, opacity: 0.9 }}
+            pathOptions={{ color: t.color, weight: tool === "eraser" ? 12 : 3, opacity: tool === "eraser" ? 0.6 : 0.9 }}
             eventHandlers={{
               click: () => { if (tool === "eraser") onDeleteTrazo(t.id); },
-              contextmenu: () => { if (isMando && confirm("Eliminar trazo?")) onDeleteTrazo(t.id); },
             }} />
         ))}
 
@@ -235,6 +249,9 @@ export default function MapPanel({
           <ToolBtn active={tool === "eraser"} onClick={() => { setTool("eraser"); setDraftPoints([]); }} title="Goma (clic en trazo/zona/foco)"><Eraser className="w-3.5 h-3.5" /></ToolBtn>
           {isMando && <ToolBtn active={tool === "zone"} onClick={() => { setTool("zone"); setDraftPoints([]); }} title="Dibujar zona"><Pencil className="w-3.5 h-3.5" /></ToolBtn>}
           <ToolBtn active={false} onClick={addFocoAtCenter} title="Añadir foco"><Flame className="w-3.5 h-3.5 text-red-500" /></ToolBtn>
+          <button onClick={() => setBaseLayer(b => b === "dark" ? "sat" : "dark")} title="Cambiar capa" className="ml-1 px-2 h-8 text-[10px] font-bold uppercase tracking-wider rounded border bg-secondary border-border hover:bg-accent">
+            {baseLayer === "dark" ? "SAT" : "MAPA"}
+          </button>
         </div>
         {tool === "pencil" && (
           <div className="flex items-center gap-1">
@@ -270,7 +287,7 @@ export default function MapPanel({
                 <span className="w-3 h-3 rounded" style={{ background: z.color }} />
                 <span className="flex-1 truncate">{z.nombre}</span>
                 {isMando && (
-                  <button onClick={() => { if (confirm(`Eliminar "${z.nombre}"?`)) onDeleteZona(z.id); }} className="text-muted-foreground hover:text-destructive">
+                  <button onClick={() => onDeleteZona(z.id)} className="text-muted-foreground hover:text-destructive">
                     <Trash2 className="w-3 h-3" />
                   </button>
                 )}
