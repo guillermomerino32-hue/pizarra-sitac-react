@@ -781,8 +781,8 @@ function StickerOnBoard({ sticker, interviniente, onMove, onContext, onOpen, dis
 function ClaveMenu({ x, y, onClose, onPick, onEdit }: { x: number; y: number; onClose: () => void; onPick: (c: Clave) => void; onEdit: () => void; }) {
   return (
     <>
-      <div className="absolute inset-0 z-30" onClick={onClose} />
-      <div className="absolute z-40 bg-popover text-popover-foreground border rounded-md shadow-2xl py-1 w-56 text-sm" style={{ left: Math.min(x, window.innerWidth - 240), top: Math.min(y, window.innerHeight - 400) }}>
+      <div className="absolute inset-0 z-[2000]" onClick={onClose} />
+      <div className="absolute z-[2001] bg-popover text-popover-foreground border rounded-md shadow-2xl py-1 w-56 text-sm" style={{ left: Math.min(x, window.innerWidth - 240), top: Math.min(y, window.innerHeight - 400) }}>
         <div className="px-3 py-1 text-[10px] uppercase tracking-widest text-muted-foreground">Claves visuales</div>
         {CLAVES_VISUALES.map(c => (
           <button key={c} onClick={() => onPick(c)} className="w-full text-left px-3 py-1.5 hover:bg-accent flex justify-between"><span className="font-mono font-bold">{c}</span><span className="text-muted-foreground text-xs">{CLAVE_DESCRIPCIONES[c]}</span></button>
