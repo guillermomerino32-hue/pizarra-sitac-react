@@ -573,17 +573,28 @@ function PizarraBoard({
           if (pts.length < 2) return null;
           const d = "M " + pts.map(p => `${p.x},${p.y}`).join(" L ");
           return (
-            <path
-              key={t.id}
-              d={d}
-              stroke={t.color}
-              strokeWidth={3}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              fill="none"
-              style={{ cursor: tool === "eraser" ? "pointer" : undefined, pointerEvents: tool === "eraser" ? "stroke" : "none" }}
-              onClick={() => { if (tool === "eraser") onDeleteTrazo(t.id); }}
-            />
+            <g key={t.id}>
+              <path
+                d={d}
+                stroke={t.color}
+                strokeWidth={3}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                fill="none"
+                style={{ pointerEvents: "none" }}
+              />
+              {tool === "eraser" && (
+                <path
+                  d={d}
+                  stroke="rgba(255,255,255,0.01)"
+                  strokeWidth={20}
+                  strokeLinecap="round"
+                  fill="none"
+                  style={{ cursor: "pointer", pointerEvents: "stroke" }}
+                  onClick={() => onDeleteTrazo(t.id)}
+                />
+              )}
+            </g>
           );
         })}
         {stroke.length > 1 && (
