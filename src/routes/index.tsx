@@ -43,7 +43,7 @@ function LoginPage() {
         <form onSubmit={onSubmit} className="bg-card border rounded-lg p-6 space-y-5 shadow-xl">
           <div className="space-y-2">
             <Label htmlFor="ind" className="uppercase text-xs tracking-widest text-muted-foreground">Indicativo</Label>
-            <Input id="ind" autoFocus autoComplete="off" value={indicativo} onChange={e => setIndicativo(e.target.value)} placeholder="Ej: B01" className="font-mono uppercase" />
+            <Input id="ind" autoFocus autoComplete="off" value={indicativo} onChange={e => setIndicativo(e.target.value)} placeholder="Ej: D02" className="font-mono uppercase" />
           </div>
           <div className="space-y-2">
             <Label htmlFor="pw" className="uppercase text-xs tracking-widest text-muted-foreground">Contraseña</Label>
