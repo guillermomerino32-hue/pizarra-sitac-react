@@ -183,6 +183,7 @@ function ServicioScreen() {
       case "C2": patch = { clave: "C2", dashed: true, c2_at: now }; break;
       case "C3": patch = { clave: "C3", dashed: false, c3_at: now }; break;
       case "C4": patch = { clave: "C4", removed: true }; break;
+      case "C5": patch = { clave: "C5", removed: true }; break;
       case "C6": patch = { clave: "C6", removed: true }; break;
       case "C7": patch = { clave: "C7", removed: true }; break;
       default: break;
