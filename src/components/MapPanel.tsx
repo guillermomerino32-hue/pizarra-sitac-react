@@ -124,6 +124,14 @@ export default function MapPanel({
     onDropSticker(intId, ll.lat, ll.lng);
   }
 
+  function zonaNameForColor(color: string) {
+    const c = color.toLowerCase();
+    if (c === "#dc2626") return "Zona Caliente";
+    if (c === "#eab308") return "Zona Templada";
+    if (c === "#16a34a") return "Zona Fría";
+    return `Zona ${zonas.length + 1}`;
+  }
+
   function finishZone() {
     if (draftPoints.length >= 3) onCreateZona(draftPoints, drawColor);
     setDraftPoints([]);
