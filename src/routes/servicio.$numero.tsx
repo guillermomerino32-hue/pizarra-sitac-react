@@ -231,7 +231,11 @@ function ServicioScreen() {
 
   async function createZona(puntos: { lat: number; lng: number }[], color: string) {
     if (!servicio) return;
-    const nombre = `Zona ${zonas.length + 1}`;
+    const c = color.toLowerCase();
+    const nombre = c === "#dc2626" ? "Zona Caliente"
+      : c === "#eab308" ? "Zona Templada"
+      : c === "#16a34a" ? "Zona Fría"
+      : `Zona ${zonas.length + 1}`;
     const { error } = await (supabase.from as any)("zonas").insert({
       servicio_id: servicio.id, nombre, color, puntos, created_by: session?.indicativo,
     });
