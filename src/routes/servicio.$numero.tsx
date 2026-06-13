@@ -125,13 +125,19 @@ function ServicioScreen() {
   const pizarraTrazos = useMemo(() => trazos.filter(t => t.panel === "pizarra"), [trazos]);
   const pizarraFocos = useMemo(() => focos.filter(f => f.panel === "pizarra"), [focos]);
 
-  function intStatus(i: Interviniente): { label: string; dot: string; placedHere: boolean } {
-    const placedHere = stickersByInt.has(i.id);
-    if (placedHere) {
-      const st = stickersByInt.get(i.id)!;
-      return { label: st.clave, dot: FUNCION_COLORS[i.funcion], placedHere };
+  function intStatus(i: Interviniente): { label: string; dot: string; placedHere: boolean; blocked: boolean } {
+    const placed = stickersByInt.get(i.id);
+    if (placed) {
+      return { label: placed.clave, dot: FUNCION_COLORS[i.funcion], placedHere: true, blocked: true };
     }
-    return { label: "Disponible", dot: "#22c55e", placedHere: false };
+    const all = stickers
+      .filter(s => s.interviniente_id === i.id)
+      .sort((a, b) => (b.updated_at || "").localeCompare(a.updated_at || ""));
+    const last = all[0];
+    if (last && (last.clave === "C4" || last.clave === "C5")) {
+      return { label: `${last.clave} Hospital`, dot: "#eab308", placedHere: false, blocked: true };
+    }
+    return { label: "Disponible", dot: "#22c55e", placedHere: false, blocked: false };
   }
 
   async function handleDrop(e: React.DragEvent) {
