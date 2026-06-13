@@ -124,6 +124,23 @@ function MainScreen() {
           </section>
         )}
 
+        {session.role === "mando" && finalizados.length > 0 && (
+          <section>
+            <h3 className="text-xs uppercase tracking-widest text-muted-foreground mb-3">Servicios finalizados (reabrir)</h3>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+              {finalizados.map(s => (
+                <div key={s.id} className="bg-card border rounded p-3 flex items-center justify-between gap-2">
+                  <div>
+                    <div className="text-2xl font-mono font-bold text-muted-foreground">#{s.numero}</div>
+                    <div className="text-[10px] text-muted-foreground">{s.finished_at ? new Date(s.finished_at).toLocaleString("es-ES") : ""}</div>
+                  </div>
+                  <Button size="sm" variant="secondary" onClick={() => reabrirServicio(s)}>Reabrir</Button>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
         <section>
           <h3 className="text-xs uppercase tracking-widest text-muted-foreground mb-3 flex items-center gap-2"><History className="w-3.5 h-3.5" /> Historial de intervenciones</h3>
           {historial.length === 0 ? (
