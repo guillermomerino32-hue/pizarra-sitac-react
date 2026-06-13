@@ -408,11 +408,11 @@ function ServicioScreen() {
               intervinientes={intervinientes}
               trazos={pizarraTrazos}
               focos={pizarraFocos}
-              tool={tool}
+              tool={readonly ? "select" : tool}
               penColor={penColor}
-              onDrop={handleDrop}
+              onDrop={readonly ? (e) => e.preventDefault() : handleDrop}
               onMoveSticker={moveSticker}
-              onContextSticker={(s, x, y) => { setContextSticker(s); setContextPos({ x, y }); }}
+              onContextSticker={(s, x, y) => { if (!readonly) { setContextSticker(s); setContextPos({ x, y }); } }}
               onOpenInter={(i) => setEditInter(i)}
               onCreateTrazo={createTrazoPizarra}
               onDeleteTrazo={deleteTrazo}
@@ -420,11 +420,12 @@ function ServicioScreen() {
               onMoveFoco={moveFocoPizarra}
               onOpenFoco={(f) => setEditFoco(f)}
               numero={servicio.numero}
+              readonly={readonly}
             />
           )}
 
           {/* Toolbar pizarra */}
-          {panel === "pizarra" && (
+          {panel === "pizarra" && !readonly && (
             <div className="absolute top-3 left-3 z-30 bg-card border rounded-md shadow-xl p-2 flex flex-col gap-2">
               <div className="flex items-center gap-1">
                 <ToolBtn active={tool === "select"} onClick={() => setTool("select")} title="Seleccionar"><MousePointer2 className="w-3.5 h-3.5" /></ToolBtn>
@@ -444,6 +445,12 @@ function ServicioScreen() {
                 </div>
               )}
               {tool === "eraser" && <div className="text-[10px] text-muted-foreground">Clic en trazo/foco para borrar</div>}
+            </div>
+          )}
+
+          {readonly && (
+            <div className="absolute top-3 left-3 z-30 bg-card/80 border rounded-md shadow-xl px-3 py-1.5 text-[10px] uppercase tracking-widest text-muted-foreground">
+              Modo solo lectura · Voluntario
             </div>
           )}
 
