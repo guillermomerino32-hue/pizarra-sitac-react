@@ -108,6 +108,7 @@ export default function MapPanel({
   const [strokePts, setStrokePts] = useState<{ lat: number; lng: number }[]>([]);
   const [drawColor, setDrawColor] = useState(ZONA_COLORS[0]);
   const [penColor, setPenColor] = useState(TRAZO_COLORS[1]);
+  const [baseLayer, setBaseLayer] = useState<"dark" | "sat">("dark");
 
   const visibleStickers = useMemo(() => stickers.filter(s => s.panel === "mapa" && !s.removed && s.lat != null && s.lng != null), [stickers]);
   const mapTrazos = useMemo(() => trazos.filter(t => t.panel === "mapa"), [trazos]);
