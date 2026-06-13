@@ -223,16 +223,18 @@ export default function MapPanel({
             <Marker
               key={s.id}
               position={[s.lat!, s.lng!]}
-              draggable={s.clave !== "C0" && tool === "select"}
+              draggable={!readonly && s.clave !== "C0" && tool === "select"}
               icon={stickerIcon(inter, s)}
               eventHandlers={{
                 dragend: (e) => { const ll = (e.target as L.Marker).getLatLng(); onMoveSticker(s, ll.lat, ll.lng); },
                 contextmenu: (e) => {
+                  if (readonly) return;
                   const oe = (e as any).originalEvent as MouseEvent;
                   const rect = wrapRef.current!.getBoundingClientRect();
                   onContextSticker(s, oe.clientX - rect.left, oe.clientY - rect.top);
                 },
                 dblclick: (e) => {
+                  if (readonly) return;
                   const oe = (e as any).originalEvent as MouseEvent;
                   const rect = wrapRef.current!.getBoundingClientRect();
                   onContextSticker(s, oe.clientX - rect.left, oe.clientY - rect.top);
