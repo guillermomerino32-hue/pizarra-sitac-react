@@ -165,10 +165,17 @@ export default function MapPanel({
     <div ref={wrapRef} className="relative h-full w-full" onDragOver={e => e.preventDefault()} onDrop={handleDrop} onClick={handleMapClick}>
       <MapContainer center={RIVAS_CENTER} zoom={RIVAS_ZOOM} className="h-full w-full" doubleClickZoom={tool !== "zone"} style={{ background: "#0a0a0a", cursor: drawing ? "crosshair" : undefined }}>
         <MapRefBridge mapRef={mapRef} dragging={drawing} />
-        <TileLayer
-          url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-          attribution='&copy; OpenStreetMap &copy; CARTO'
-        />
+        {baseLayer === "dark" ? (
+          <TileLayer
+            url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+            attribution='&copy; OpenStreetMap &copy; CARTO'
+          />
+        ) : (
+          <TileLayer
+            url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+            attribution='Tiles &copy; Esri'
+          />
+        )}
         <DrawHandler tool={tool} onPoint={p => setDraftPoints(prev => [...prev, p])} onFinish={finishZone} onStrokePoint={onStrokePoint} onStrokeEnd={onStrokeEnd} />
 
         {zonas.map(z => (
