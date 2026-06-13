@@ -117,6 +117,7 @@ export default function MapPanel({
 
   function handleDrop(e: React.DragEvent) {
     e.preventDefault();
+    if (readonly) return;
     const intId = e.dataTransfer.getData("text/interviniente");
     if (!intId || !mapRef.current || !wrapRef.current) return;
     const rect = wrapRef.current.getBoundingClientRect();
