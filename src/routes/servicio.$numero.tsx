@@ -388,7 +388,7 @@ function ServicioScreen() {
               zonas={zonas}
               trazos={trazos}
               focos={focos}
-              isMando={isMando}
+              isMando={isMando && !readonly}
               currentIndicativo={session?.indicativo ?? ""}
               onDropSticker={dropOnMap}
               onMoveSticker={moveStickerMap}
