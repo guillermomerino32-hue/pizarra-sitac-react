@@ -248,11 +248,13 @@ export default function MapPanel({
       {/* Toolbar */}
       <div className="absolute top-3 left-3 z-[1000] bg-card border rounded-md shadow-xl p-2 flex flex-col gap-2">
         <div className="flex items-center gap-1">
-          <ToolBtn active={tool === "select"} onClick={() => { setTool("select"); setDraftPoints([]); }} title="Seleccionar"><MousePointer2 className="w-3.5 h-3.5" /></ToolBtn>
-          <ToolBtn active={tool === "pencil"} onClick={() => { setTool("pencil"); setDraftPoints([]); }} title="Lápiz"><Pen className="w-3.5 h-3.5" /></ToolBtn>
-          <ToolBtn active={tool === "eraser"} onClick={() => { setTool("eraser"); setDraftPoints([]); }} title="Goma (clic en trazo/zona/foco)"><Eraser className="w-3.5 h-3.5" /></ToolBtn>
-          {isMando && <ToolBtn active={tool === "zone"} onClick={() => { setTool("zone"); setDraftPoints([]); }} title="Dibujar zona"><Pencil className="w-3.5 h-3.5" /></ToolBtn>}
-          <ToolBtn active={false} onClick={addFocoAtCenter} title="Añadir foco"><Flame className="w-3.5 h-3.5 text-red-500" /></ToolBtn>
+          {!readonly && <>
+            <ToolBtn active={tool === "select"} onClick={() => { setTool("select"); setDraftPoints([]); }} title="Seleccionar"><MousePointer2 className="w-3.5 h-3.5" /></ToolBtn>
+            <ToolBtn active={tool === "pencil"} onClick={() => { setTool("pencil"); setDraftPoints([]); }} title="Lápiz"><Pen className="w-3.5 h-3.5" /></ToolBtn>
+            <ToolBtn active={tool === "eraser"} onClick={() => { setTool("eraser"); setDraftPoints([]); }} title="Goma (clic en trazo/zona/foco)"><Eraser className="w-3.5 h-3.5" /></ToolBtn>
+            {isMando && <ToolBtn active={tool === "zone"} onClick={() => { setTool("zone"); setDraftPoints([]); }} title="Dibujar zona"><Pencil className="w-3.5 h-3.5" /></ToolBtn>}
+            <ToolBtn active={false} onClick={addFocoAtCenter} title="Añadir foco"><Flame className="w-3.5 h-3.5 text-red-500" /></ToolBtn>
+          </>}
           <button onClick={() => setBaseLayer(b => b === "dark" ? "sat" : "dark")} title="Cambiar capa" className="ml-1 px-2 h-8 text-[10px] font-bold uppercase tracking-wider rounded border bg-secondary border-border hover:bg-accent">
             {baseLayer === "dark" ? "SAT" : "MAPA"}
           </button>
