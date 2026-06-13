@@ -130,3 +130,10 @@
 .sticker.circle { border-radius: 9999px; width: 52px; height: 52px; }
 .sticker.c0 { filter: grayscale(1) brightness(0.6); cursor: not-allowed; }
 .sticker:active { cursor: grabbing; }
+
+/* Radix Dialog / Sheet overlay must sit above Leaflet panes (z up to 1000) */
+[data-slot="dialog-overlay"],
+[data-slot="sheet-overlay"] { z-index: 2000 !important; }
+[data-slot="dialog-content"],
+[data-slot="sheet-content"] { z-index: 2001 !important; }
+
