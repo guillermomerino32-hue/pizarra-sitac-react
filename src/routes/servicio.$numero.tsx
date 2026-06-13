@@ -116,6 +116,7 @@ function ServicioScreen() {
   }, [servicio, navigate]);
 
   const isMando = session?.role === "mando";
+  const readonly = session?.role === "voluntario";
   const stickersByInt = useMemo(() => {
     const m = new Map<string, Sticker>();
     stickers.filter(s => s.panel === panel && !s.removed).forEach(s => m.set(s.interviniente_id, s));
