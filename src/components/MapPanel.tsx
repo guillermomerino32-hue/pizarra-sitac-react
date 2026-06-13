@@ -165,17 +165,15 @@ export default function MapPanel({
         {zonas.map(z => (
           <Polygon key={z.id} positions={z.puntos.map(p => [p.lat, p.lng]) as any} pathOptions={{ color: z.color, fillColor: z.color, fillOpacity: 0.18, weight: 2 }}
             eventHandlers={{
-              click: () => { if (tool === "eraser" && confirm(`Eliminar zona "${z.nombre}"?`)) onDeleteZona(z.id); },
-              contextmenu: () => { if (isMando && confirm(`Eliminar zona "${z.nombre}"?`)) onDeleteZona(z.id); },
+              click: () => { if (tool === "eraser") onDeleteZona(z.id); },
             }} />
         ))}
 
         {mapTrazos.map(t => (
           <Polyline key={t.id} positions={(t.puntos as any[]).map(p => [p.lat, p.lng]) as any}
-            pathOptions={{ color: t.color, weight: 3, opacity: 0.9 }}
+            pathOptions={{ color: t.color, weight: tool === "eraser" ? 12 : 3, opacity: tool === "eraser" ? 0.6 : 0.9 }}
             eventHandlers={{
               click: () => { if (tool === "eraser") onDeleteTrazo(t.id); },
-              contextmenu: () => { if (isMando && confirm("Eliminar trazo?")) onDeleteTrazo(t.id); },
             }} />
         ))}
 
