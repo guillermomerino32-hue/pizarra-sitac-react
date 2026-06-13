@@ -17,6 +17,7 @@ interface Props {
   focos: Foco[];
   isMando: boolean;
   currentIndicativo: string;
+  readonly?: boolean;
   onDropSticker: (intId: string, lat: number, lng: number) => void;
   onMoveSticker: (sticker: Sticker, lat: number, lng: number) => void;
   onContextSticker: (sticker: Sticker, x: number, y: number) => void;
