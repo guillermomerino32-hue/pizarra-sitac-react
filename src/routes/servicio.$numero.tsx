@@ -328,6 +328,14 @@ function ServicioScreen() {
       </header>
 
       <div className="flex-1 flex overflow-hidden relative">
+        <button
+          onClick={() => setSidebarOpen(o => !o)}
+          title={sidebarOpen ? "Ocultar barra" : "Mostrar barra"}
+          className="absolute top-1/2 -translate-y-1/2 z-[1500] bg-card border border-border rounded-r-md shadow-lg w-6 h-12 flex items-center justify-center hover:bg-accent"
+          style={{ left: sidebarOpen ? "18rem" : 0 }}
+        >
+          {sidebarOpen ? <ChevronLeft className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+        </button>
         {sidebarOpen && (
           <aside className="w-72 border-r bg-sidebar text-sidebar-foreground flex flex-col overflow-hidden">
             <div className="p-3 border-b border-sidebar-border flex items-center justify-between">
