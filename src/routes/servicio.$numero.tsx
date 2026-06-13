@@ -351,7 +351,7 @@ function ServicioScreen() {
               {intervinientes.length === 0 && <div className="text-xs text-muted-foreground text-center p-4">Sin intervinientes registrados.</div>}
               {intervinientes.map(i => {
                 const st = intStatus(i);
-                const draggable = !st.blocked;
+                const draggable = !st.blocked && !readonly;
                 return (
                   <div key={i.id}
                     draggable={draggable}
