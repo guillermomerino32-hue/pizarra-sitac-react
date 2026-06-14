@@ -808,18 +808,21 @@ function StickerOnBoard({ sticker, interviniente, onMove, onContext, onOpen, dis
   );
 }
 
-function ClaveMenu({ x, y, onClose, onPick, onEdit }: { x: number; y: number; onClose: () => void; onPick: (c: Clave) => void; onEdit: () => void; }) {
+function ClaveMenu({ x, y, interviniente, onClose, onPick, onEdit }: { x: number; y: number; interviniente: Interviniente | null; onClose: () => void; onPick: (c: Clave) => void; onEdit: () => void; }) {
+  const isAmbulance = !!interviniente && interviniente.funcion === "sanitario" && interviniente.tipo === "vehiculo" && (interviniente.subtipo === "ambulancia" || interviniente.subtipo === "cardio");
+  const visuales = CLAVES_VISUALES.filter(c => (c === "C4") ? isAmbulance : true);
+  const logClaves = CLAVES_LOG.filter(c => (c === "C5") ? isAmbulance : true);
   return (
     <>
       <div className="absolute inset-0 z-[2000]" onClick={onClose} />
       <div className="absolute z-[2001] bg-popover text-popover-foreground border rounded-md shadow-2xl py-1 w-56 text-sm" style={{ left: Math.min(x, window.innerWidth - 240), top: Math.min(y, window.innerHeight - 400) }}>
         <div className="px-3 py-1 text-[10px] uppercase tracking-widest text-muted-foreground">Claves visuales</div>
-        {CLAVES_VISUALES.map(c => (
+        {visuales.map(c => (
           <button key={c} onClick={() => onPick(c)} className="w-full text-left px-3 py-1.5 hover:bg-accent flex justify-between"><span className="font-mono font-bold">{c}</span><span className="text-muted-foreground text-xs">{CLAVE_DESCRIPCIONES[c]}</span></button>
         ))}
         <div className="px-3 py-1 text-[10px] uppercase tracking-widest text-muted-foreground border-t mt-1">Claves de registro</div>
         <div className="max-h-44 overflow-y-auto">
-          {CLAVES_LOG.map(c => (
+          {logClaves.map(c => (
             <button key={c} onClick={() => onPick(c)} className="w-full text-left px-3 py-1.5 hover:bg-accent flex justify-between"><span className="font-mono font-bold">{c}</span><span className="text-muted-foreground text-xs truncate ml-2">{CLAVE_DESCRIPCIONES[c]}</span></button>
           ))}
         </div>
