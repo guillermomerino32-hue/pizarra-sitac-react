@@ -523,6 +523,38 @@ function ToolBtn({ active, onClick, title, children }: { active: boolean; onClic
   );
 }
 
+function pointToSegmentDistance(point: { x: number; y: number }, start: { x: number; y: number }, end: { x: number; y: number }) {
+  const dx = end.x - start.x;
+  const dy = end.y - start.y;
+  if (dx === 0 && dy === 0) return Math.hypot(point.x - start.x, point.y - start.y);
+  const t = Math.max(0, Math.min(1, ((point.x - start.x) * dx + (point.y - start.y) * dy) / (dx * dx + dy * dy)));
+  const px = start.x + t * dx;
+  const py = start.y + t * dy;
+  return Math.hypot(point.x - px, point.y - py);
+}
+
+function trazoTouchesPoint(trazo: Trazo, point: { x: number; y: number }, radius: number) {
+  const pts = (trazo.puntos as any[]).filter((p) => p.x != null && p.y != null) as { x: number; y: number }[];
+  if (pts.length === 0) return false;
+  if (pts.length === 1) return Math.hypot(point.x - pts[0].x, point.y - pts[0].y) <= radius;
+  for (let i = 1; i < pts.length; i += 1) {
+    if (pointToSegmentDistance(point, pts[i - 1], pts[i]) <= radius) return true;
+  }
+  return false;
+}
+
+function sampleBetweenPoints(from: { x: number; y: number } | null, to: { x: number; y: number }, step = 10) {
+  if (!from) return [to];
+  const dx = to.x - from.x;
+  const dy = to.y - from.y;
+  const distance = Math.hypot(dx, dy);
+  const steps = Math.max(1, Math.ceil(distance / step));
+  return Array.from({ length: steps + 1 }, (_, index) => ({
+    x: from.x + (dx * index) / steps,
+    y: from.y + (dy * index) / steps,
+  }));
+}
+
 function PizarraBoard({
   boardRef, stickers, intervinientes, trazos, focos, tool, penColor, numero,
   onDrop, onMoveSticker, onContextSticker, onOpenInter,
@@ -545,27 +577,72 @@ function PizarraBoard({
 }) {
   const [stroke, setStroke] = useState<{ x: number; y: number }[]>([]);
   const drawing = useRef(false);
+  const erasing = useRef(false);
+  const lastErasePoint = useRef<{ x: number; y: number } | null>(null);
+  const deletingTrazoIds = useRef(new Set<string>());
+
+  useEffect(() => {
+    const activeIds = new Set(trazos.map((trazo) => trazo.id));
+    deletingTrazoIds.current.forEach((id) => {
+      if (!activeIds.has(id)) deletingTrazoIds.current.delete(id);
+    });
+  }, [trazos]);
+
+  function getBoardPoint(e: React.PointerEvent) {
+    const r = boardRef.current!.getBoundingClientRect();
+    return { x: e.clientX - r.left, y: e.clientY - r.top };
+  }
+
+  function eraseAlongPath(from: { x: number; y: number } | null, to: { x: number; y: number }) {
+    const matches = new Set<string>();
+    for (const sample of sampleBetweenPoints(from, to)) {
+      for (const trazo of trazos) {
+        if (deletingTrazoIds.current.has(trazo.id)) continue;
+        if (trazoTouchesPoint(trazo, sample, 12)) matches.add(trazo.id);
+      }
+    }
+    matches.forEach((id) => {
+      deletingTrazoIds.current.add(id);
+      onDeleteTrazo(id);
+    });
+  }
 
   function pointerDown(e: React.PointerEvent) {
+    if (tool === "eraser") {
+      e.preventDefault();
+      erasing.current = true;
+      const point = getBoardPoint(e);
+      lastErasePoint.current = point;
+      eraseAlongPath(null, point);
+      (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+      return;
+    }
     if (tool !== "pencil") return;
     e.preventDefault();
     drawing.current = true;
-    const r = boardRef.current!.getBoundingClientRect();
-    setStroke([{ x: e.clientX - r.left, y: e.clientY - r.top }]);
+    setStroke([getBoardPoint(e)]);
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
   }
   function pointerMove(e: React.PointerEvent) {
-    if (!drawing.current) return;
-    const r = boardRef.current!.getBoundingClientRect();
-    setStroke(prev => [...prev, { x: e.clientX - r.left, y: e.clientY - r.top }]);
+    const point = getBoardPoint(e);
+    if (drawing.current) {
+      setStroke(prev => [...prev, point]);
+      return;
+    }
+    if (!erasing.current) return;
+    eraseAlongPath(lastErasePoint.current, point);
+    lastErasePoint.current = point;
   }
   function pointerUp() {
-    if (!drawing.current) return;
-    drawing.current = false;
-    setStroke(prev => {
-      if (prev.length >= 2) onCreateTrazo(prev, penColor);
-      return [];
-    });
+    if (drawing.current) {
+      drawing.current = false;
+      setStroke(prev => {
+        if (prev.length >= 2) onCreateTrazo(prev, penColor);
+        return [];
+      });
+    }
+    erasing.current = false;
+    lastErasePoint.current = null;
   }
 
   const interactive = tool === "pencil" || tool === "eraser";
@@ -601,17 +678,6 @@ function PizarraBoard({
                 fill="none"
                 style={{ pointerEvents: "none" }}
               />
-              {tool === "eraser" && (
-                <path
-                  d={d}
-                  stroke="rgba(0,0,0,0.001)"
-                  strokeWidth={24}
-                  strokeLinecap="round"
-                  fill="none"
-                  style={{ cursor: "pointer", pointerEvents: "stroke" }}
-                  onPointerDown={(e) => { e.stopPropagation(); onDeleteTrazo(t.id); }}
-                />
-              )}
             </g>
           );
         })}
