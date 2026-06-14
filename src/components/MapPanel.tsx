@@ -213,7 +213,7 @@ export default function MapPanel({
             eventHandlers={{
               dragend: (e) => { const ll = (e.target as L.Marker).getLatLng(); onMoveFoco(f.id, ll.lat, ll.lng); },
               dblclick: () => onOpenFoco(f),
-              click: () => { if (tool === "eraser") onOpenFoco(f); },
+              click: () => { if (tool === "eraser") onDeleteFoco(f.id); },
             }} />
         ))}
 
