@@ -460,6 +460,7 @@ function ServicioScreen() {
           {contextSticker && contextPos && (
             <ClaveMenu
               x={contextPos.x} y={contextPos.y}
+              interviniente={intervinientes.find(x => x.id === contextSticker.interviniente_id) ?? null}
               onClose={() => setContextSticker(null)}
               onPick={(c) => applyClave(contextSticker, c)}
               onEdit={() => { const i = intervinientes.find(x => x.id === contextSticker.interviniente_id); if (i) setEditInter(i); setContextSticker(null); }}
