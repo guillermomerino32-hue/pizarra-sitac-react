@@ -641,11 +641,12 @@ function PizarraBoard({
   );
 }
 
-function FocoSticker({ foco, tool, boardRef, onMove, onOpen }: {
+function FocoSticker({ foco, tool, boardRef, onMove, onOpen, onDelete }: {
   foco: Foco; tool: Tool;
   boardRef: React.MutableRefObject<HTMLDivElement | null>;
   onMove: (x: number, y: number) => void;
   onOpen: () => void;
+  onDelete: () => void;
 }) {
   const ref = useRef<HTMLDivElement | null>(null);
   const dragging = useRef<{ ox: number; oy: number; moved: boolean } | null>(null);
@@ -684,7 +685,7 @@ function FocoSticker({ foco, tool, boardRef, onMove, onOpen }: {
       onPointerMove={pm}
       onPointerUp={pu}
       onDoubleClick={onOpen}
-      onClick={() => { if (tool === "eraser") onOpen(); }}
+      onClick={() => { if (tool === "eraser") onDelete(); }}
       title={foco.nombre}
     >
       <svg viewBox="0 0 64 64" width={48} height={48} style={{ filter: "drop-shadow(0 2px 4px rgba(0,0,0,.5))" }}>
