@@ -600,12 +600,12 @@ function PizarraBoard({
               {tool === "eraser" && (
                 <path
                   d={d}
-                  stroke="rgba(255,255,255,0.01)"
-                  strokeWidth={20}
+                  stroke="rgba(0,0,0,0.001)"
+                  strokeWidth={24}
                   strokeLinecap="round"
                   fill="none"
                   style={{ cursor: "pointer", pointerEvents: "stroke" }}
-                  onClick={() => onDeleteTrazo(t.id)}
+                  onPointerDown={(e) => { e.stopPropagation(); onDeleteTrazo(t.id); }}
                 />
               )}
             </g>
