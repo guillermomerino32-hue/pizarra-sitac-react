@@ -621,7 +621,7 @@ function PizarraBoard({
 
       {/* Focos */}
       {focos.map(f => (
-        <FocoSticker key={f.id} foco={f} tool={tool} boardRef={boardRef} onMove={(x, y) => onMoveFoco(f.id, x, y)} onOpen={() => onOpenFoco(f)} />
+        <FocoSticker key={f.id} foco={f} tool={tool} boardRef={boardRef} onMove={(x, y) => onMoveFoco(f.id, x, y)} onOpen={() => onOpenFoco(f)} onDelete={() => onDeleteFoco(f.id)} />
       ))}
 
       {/* Intervinientes stickers */}
