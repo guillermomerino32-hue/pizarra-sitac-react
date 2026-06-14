@@ -27,6 +27,7 @@ interface Props {
   onDeleteTrazo: (id: string) => void;
   onCreateFoco: (lat: number, lng: number) => void;
   onMoveFoco: (id: string, lat: number, lng: number) => void;
+  onDeleteFoco: (id: string) => void;
   onOpenFoco: (foco: Foco) => void;
 }
 
