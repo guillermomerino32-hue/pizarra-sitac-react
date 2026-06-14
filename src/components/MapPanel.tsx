@@ -27,6 +27,7 @@ interface Props {
   onDeleteTrazo: (id: string) => void;
   onCreateFoco: (lat: number, lng: number) => void;
   onMoveFoco: (id: string, lat: number, lng: number) => void;
+  onDeleteFoco: (id: string) => void;
   onOpenFoco: (foco: Foco) => void;
 }
 
@@ -100,7 +101,7 @@ function MapRefBridge({ mapRef, dragging }: { mapRef: React.MutableRefObject<L.M
 export default function MapPanel({
   intervinientes, stickers, zonas, trazos, focos, isMando, readonly,
   onDropSticker, onMoveSticker, onContextSticker, onCreateZona, onDeleteZona,
-  onCreateTrazo, onDeleteTrazo, onCreateFoco, onMoveFoco, onOpenFoco,
+  onCreateTrazo, onDeleteTrazo, onCreateFoco, onMoveFoco, onDeleteFoco, onOpenFoco,
 }: Props) {
   const mapRef = useRef<L.Map | null>(null);
   const wrapRef = useRef<HTMLDivElement | null>(null);
@@ -212,7 +213,7 @@ export default function MapPanel({
             eventHandlers={{
               dragend: (e) => { const ll = (e.target as L.Marker).getLatLng(); onMoveFoco(f.id, ll.lat, ll.lng); },
               dblclick: () => onOpenFoco(f),
-              click: () => { if (tool === "eraser") onOpenFoco(f); },
+              click: () => { if (tool === "eraser") onDeleteFoco(f.id); },
             }} />
         ))}
 

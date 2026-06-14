@@ -130,7 +130,7 @@ export const RIVAS_CENTER: [number, number] = [40.3260, -3.5183];
 export const RIVAS_ZOOM = 14;
 
 export const ZONA_COLORS = ["#dc2626","#f97316","#eab308","#16a34a","#2563eb","#9333ea"];
-export const TRAZO_COLORS = ["#111111","#dc2626","#f97316","#eab308","#16a34a","#2563eb","#a855f7"];
+export const TRAZO_COLORS = ["#111111","#dc2626","#f97316","#eab308","#16a34a","#2563eb"];
 
 export interface Trazo {
   id: string;

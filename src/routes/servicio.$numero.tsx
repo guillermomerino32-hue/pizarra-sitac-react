@@ -400,6 +400,7 @@ function ServicioScreen() {
               onDeleteTrazo={deleteTrazo}
               onCreateFoco={createFocoMap}
               onMoveFoco={moveFocoMap}
+              onDeleteFoco={deleteFoco}
               onOpenFoco={(f) => setEditFoco(f)}
             />
           ) : (
@@ -419,6 +420,7 @@ function ServicioScreen() {
               onDeleteTrazo={deleteTrazo}
               onCreateFoco={createFocoPizarra}
               onMoveFoco={moveFocoPizarra}
+              onDeleteFoco={deleteFoco}
               onOpenFoco={(f) => setEditFoco(f)}
               numero={servicio.numero}
               readonly={readonly}
@@ -458,6 +460,7 @@ function ServicioScreen() {
           {contextSticker && contextPos && (
             <ClaveMenu
               x={contextPos.x} y={contextPos.y}
+              interviniente={intervinientes.find(x => x.id === contextSticker.interviniente_id) ?? null}
               onClose={() => setContextSticker(null)}
               onPick={(c) => applyClave(contextSticker, c)}
               onEdit={() => { const i = intervinientes.find(x => x.id === contextSticker.interviniente_id); if (i) setEditInter(i); setContextSticker(null); }}
@@ -523,7 +526,7 @@ function ToolBtn({ active, onClick, title, children }: { active: boolean; onClic
 function PizarraBoard({
   boardRef, stickers, intervinientes, trazos, focos, tool, penColor, numero,
   onDrop, onMoveSticker, onContextSticker, onOpenInter,
-  onCreateTrazo, onDeleteTrazo, onCreateFoco, onMoveFoco, onOpenFoco, readonly,
+  onCreateTrazo, onDeleteTrazo, onCreateFoco, onMoveFoco, onDeleteFoco, onOpenFoco, readonly,
 }: {
   boardRef: React.MutableRefObject<HTMLDivElement | null>;
   stickers: Sticker[]; intervinientes: Interviniente[]; trazos: Trazo[]; focos: Foco[];
@@ -536,6 +539,7 @@ function PizarraBoard({
   onDeleteTrazo: (id: string) => void;
   onCreateFoco: (x: number, y: number) => void;
   onMoveFoco: (id: string, x: number, y: number) => void;
+  onDeleteFoco: (id: string) => void;
   onOpenFoco: (f: Foco) => void;
   readonly?: boolean;
 }) {
@@ -600,12 +604,12 @@ function PizarraBoard({
               {tool === "eraser" && (
                 <path
                   d={d}
-                  stroke="rgba(255,255,255,0.01)"
-                  strokeWidth={20}
+                  stroke="rgba(0,0,0,0.001)"
+                  strokeWidth={24}
                   strokeLinecap="round"
                   fill="none"
                   style={{ cursor: "pointer", pointerEvents: "stroke" }}
-                  onClick={() => onDeleteTrazo(t.id)}
+                  onPointerDown={(e) => { e.stopPropagation(); onDeleteTrazo(t.id); }}
                 />
               )}
             </g>
@@ -618,7 +622,7 @@ function PizarraBoard({
 
       {/* Focos */}
       {focos.map(f => (
-        <FocoSticker key={f.id} foco={f} tool={tool} boardRef={boardRef} onMove={(x, y) => onMoveFoco(f.id, x, y)} onOpen={() => onOpenFoco(f)} />
+        <FocoSticker key={f.id} foco={f} tool={tool} boardRef={boardRef} onMove={(x, y) => onMoveFoco(f.id, x, y)} onOpen={() => onOpenFoco(f)} onDelete={() => onDeleteFoco(f.id)} />
       ))}
 
       {/* Intervinientes stickers */}
@@ -638,11 +642,12 @@ function PizarraBoard({
   );
 }
 
-function FocoSticker({ foco, tool, boardRef, onMove, onOpen }: {
+function FocoSticker({ foco, tool, boardRef, onMove, onOpen, onDelete }: {
   foco: Foco; tool: Tool;
   boardRef: React.MutableRefObject<HTMLDivElement | null>;
   onMove: (x: number, y: number) => void;
   onOpen: () => void;
+  onDelete: () => void;
 }) {
   const ref = useRef<HTMLDivElement | null>(null);
   const dragging = useRef<{ ox: number; oy: number; moved: boolean } | null>(null);
@@ -681,7 +686,7 @@ function FocoSticker({ foco, tool, boardRef, onMove, onOpen }: {
       onPointerMove={pm}
       onPointerUp={pu}
       onDoubleClick={onOpen}
-      onClick={() => { if (tool === "eraser") onOpen(); }}
+      onClick={() => { if (tool === "eraser") onDelete(); }}
       title={foco.nombre}
     >
       <svg viewBox="0 0 64 64" width={48} height={48} style={{ filter: "drop-shadow(0 2px 4px rgba(0,0,0,.5))" }}>
@@ -803,18 +808,21 @@ function StickerOnBoard({ sticker, interviniente, onMove, onContext, onOpen, dis
   );
 }
 
-function ClaveMenu({ x, y, onClose, onPick, onEdit }: { x: number; y: number; onClose: () => void; onPick: (c: Clave) => void; onEdit: () => void; }) {
+function ClaveMenu({ x, y, interviniente, onClose, onPick, onEdit }: { x: number; y: number; interviniente: Interviniente | null; onClose: () => void; onPick: (c: Clave) => void; onEdit: () => void; }) {
+  const isAmbulance = !!interviniente && interviniente.funcion === "sanitario" && interviniente.tipo === "vehiculo" && (interviniente.subtipo === "ambulancia" || interviniente.subtipo === "cardio");
+  const visuales = CLAVES_VISUALES.filter(c => (c === "C4") ? isAmbulance : true);
+  const logClaves = CLAVES_LOG.filter(c => (c === "C5") ? isAmbulance : true);
   return (
     <>
       <div className="absolute inset-0 z-[2000]" onClick={onClose} />
       <div className="absolute z-[2001] bg-popover text-popover-foreground border rounded-md shadow-2xl py-1 w-56 text-sm" style={{ left: Math.min(x, window.innerWidth - 240), top: Math.min(y, window.innerHeight - 400) }}>
         <div className="px-3 py-1 text-[10px] uppercase tracking-widest text-muted-foreground">Claves visuales</div>
-        {CLAVES_VISUALES.map(c => (
+        {visuales.map(c => (
           <button key={c} onClick={() => onPick(c)} className="w-full text-left px-3 py-1.5 hover:bg-accent flex justify-between"><span className="font-mono font-bold">{c}</span><span className="text-muted-foreground text-xs">{CLAVE_DESCRIPCIONES[c]}</span></button>
         ))}
         <div className="px-3 py-1 text-[10px] uppercase tracking-widest text-muted-foreground border-t mt-1">Claves de registro</div>
         <div className="max-h-44 overflow-y-auto">
-          {CLAVES_LOG.map(c => (
+          {logClaves.map(c => (
             <button key={c} onClick={() => onPick(c)} className="w-full text-left px-3 py-1.5 hover:bg-accent flex justify-between"><span className="font-mono font-bold">{c}</span><span className="text-muted-foreground text-xs truncate ml-2">{CLAVE_DESCRIPCIONES[c]}</span></button>
           ))}
         </div>
