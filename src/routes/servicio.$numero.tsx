@@ -525,7 +525,7 @@ function ToolBtn({ active, onClick, title, children }: { active: boolean; onClic
 function PizarraBoard({
   boardRef, stickers, intervinientes, trazos, focos, tool, penColor, numero,
   onDrop, onMoveSticker, onContextSticker, onOpenInter,
-  onCreateTrazo, onDeleteTrazo, onCreateFoco, onMoveFoco, onOpenFoco, readonly,
+  onCreateTrazo, onDeleteTrazo, onCreateFoco, onMoveFoco, onDeleteFoco, onOpenFoco, readonly,
 }: {
   boardRef: React.MutableRefObject<HTMLDivElement | null>;
   stickers: Sticker[]; intervinientes: Interviniente[]; trazos: Trazo[]; focos: Foco[];
@@ -538,6 +538,7 @@ function PizarraBoard({
   onDeleteTrazo: (id: string) => void;
   onCreateFoco: (x: number, y: number) => void;
   onMoveFoco: (id: string, x: number, y: number) => void;
+  onDeleteFoco: (id: string) => void;
   onOpenFoco: (f: Foco) => void;
   readonly?: boolean;
 }) {
