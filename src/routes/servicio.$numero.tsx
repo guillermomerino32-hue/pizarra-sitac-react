@@ -400,6 +400,7 @@ function ServicioScreen() {
               onDeleteTrazo={deleteTrazo}
               onCreateFoco={createFocoMap}
               onMoveFoco={moveFocoMap}
+              onDeleteFoco={deleteFoco}
               onOpenFoco={(f) => setEditFoco(f)}
             />
           ) : (
@@ -419,6 +420,7 @@ function ServicioScreen() {
               onDeleteTrazo={deleteTrazo}
               onCreateFoco={createFocoPizarra}
               onMoveFoco={moveFocoPizarra}
+              onDeleteFoco={deleteFoco}
               onOpenFoco={(f) => setEditFoco(f)}
               numero={servicio.numero}
               readonly={readonly}
