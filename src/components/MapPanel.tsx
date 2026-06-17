@@ -4,9 +4,9 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { FUNCION_COLORS, RIVAS_CENTER, RIVAS_ZOOM, TRAZO_COLORS, ZONA_COLORS, type Foco, type Interviniente, type Sticker, type Trazo, type Zona } from "@/lib/domain";
 import { Button } from "@/components/ui/button";
-import { Pencil, Check, X, Trash2, Pen, MousePointer2, Flame } from "lucide-react";
+import { Pencil, Check, X, Trash2, Pen, MousePointer2, Flame, Eraser } from "lucide-react";
 
-type Tool = "select" | "pencil" | "zone";
+type Tool = "select" | "pencil" | "zone" | "eraser";
 
 interface Props {
   servicioId: string;
@@ -54,31 +54,41 @@ function focoIcon(foco: Foco) {
   return L.divIcon({ html, className: "sitac-foco", iconSize: [48, 60], iconAnchor: [24, 24] });
 }
 
-function DrawHandler({ tool, onPoint, onFinish, onStrokePoint, onStrokeEnd }: {
+function DrawHandler({ tool, onPoint, onFinish, onStrokePoint, onStrokeEnd, onErasePoint }: {
   tool: Tool;
   onPoint: (ll: { lat: number; lng: number }) => void;
   onFinish: () => void;
   onStrokePoint: (ll: { lat: number; lng: number }) => void;
   onStrokeEnd: () => void;
+  onErasePoint: (ll: { lat: number; lng: number }) => void;
 }) {
   const drawingStroke = useRef(false);
+  const erasingStroke = useRef(false);
   useMapEvents({
     click(e) {
       if (tool === "zone") onPoint({ lat: e.latlng.lat, lng: e.latlng.lng });
     },
     dblclick() { if (tool === "zone") onFinish(); },
     mousedown(e) {
+      if (tool === "eraser") {
+        erasingStroke.current = true;
+        onErasePoint({ lat: e.latlng.lat, lng: e.latlng.lng });
+      }
       if (tool === "pencil") {
         drawingStroke.current = true;
         onStrokePoint({ lat: e.latlng.lat, lng: e.latlng.lng });
       }
     },
     mousemove(e) {
+      if (tool === "eraser" && erasingStroke.current) {
+        onErasePoint({ lat: e.latlng.lat, lng: e.latlng.lng });
+      }
       if (tool === "pencil" && drawingStroke.current) {
         onStrokePoint({ lat: e.latlng.lat, lng: e.latlng.lng });
       }
     },
     mouseup() {
+      if (tool === "eraser") erasingStroke.current = false;
       if (tool === "pencil" && drawingStroke.current) {
         drawingStroke.current = false;
         onStrokeEnd();
