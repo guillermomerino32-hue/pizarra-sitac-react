@@ -4,9 +4,9 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { FUNCION_COLORS, RIVAS_CENTER, RIVAS_ZOOM, TRAZO_COLORS, ZONA_COLORS, type Foco, type Interviniente, type Sticker, type Trazo, type Zona } from "@/lib/domain";
 import { Button } from "@/components/ui/button";
-import { Pencil, Check, X, Trash2, Pen, MousePointer2, Flame } from "lucide-react";
+import { Pencil, Check, X, Trash2, Pen, MousePointer2, Flame, Eraser } from "lucide-react";
 
-type Tool = "select" | "pencil" | "zone";
+type Tool = "select" | "pencil" | "zone" | "eraser";
 
 interface Props {
   servicioId: string;
@@ -54,31 +54,41 @@ function focoIcon(foco: Foco) {
   return L.divIcon({ html, className: "sitac-foco", iconSize: [48, 60], iconAnchor: [24, 24] });
 }
 
-function DrawHandler({ tool, onPoint, onFinish, onStrokePoint, onStrokeEnd }: {
+function DrawHandler({ tool, onPoint, onFinish, onStrokePoint, onStrokeEnd, onErasePoint }: {
   tool: Tool;
   onPoint: (ll: { lat: number; lng: number }) => void;
   onFinish: () => void;
   onStrokePoint: (ll: { lat: number; lng: number }) => void;
   onStrokeEnd: () => void;
+  onErasePoint: (ll: { lat: number; lng: number }) => void;
 }) {
   const drawingStroke = useRef(false);
+  const erasingStroke = useRef(false);
   useMapEvents({
     click(e) {
       if (tool === "zone") onPoint({ lat: e.latlng.lat, lng: e.latlng.lng });
     },
     dblclick() { if (tool === "zone") onFinish(); },
     mousedown(e) {
+      if (tool === "eraser") {
+        erasingStroke.current = true;
+        onErasePoint({ lat: e.latlng.lat, lng: e.latlng.lng });
+      }
       if (tool === "pencil") {
         drawingStroke.current = true;
         onStrokePoint({ lat: e.latlng.lat, lng: e.latlng.lng });
       }
     },
     mousemove(e) {
+      if (tool === "eraser" && erasingStroke.current) {
+        onErasePoint({ lat: e.latlng.lat, lng: e.latlng.lng });
+      }
       if (tool === "pencil" && drawingStroke.current) {
         onStrokePoint({ lat: e.latlng.lat, lng: e.latlng.lng });
       }
     },
     mouseup() {
+      if (tool === "eraser") erasingStroke.current = false;
       if (tool === "pencil" && drawingStroke.current) {
         drawingStroke.current = false;
         onStrokeEnd();
@@ -98,6 +108,14 @@ function MapRefBridge({ mapRef, dragging }: { mapRef: React.MutableRefObject<L.M
   return null;
 }
 
+function pointToSegmentDistance(point: L.Point, start: L.Point, end: L.Point) {
+  const dx = end.x - start.x;
+  const dy = end.y - start.y;
+  if (dx === 0 && dy === 0) return point.distanceTo(start);
+  const t = Math.max(0, Math.min(1, ((point.x - start.x) * dx + (point.y - start.y) * dy) / (dx * dx + dy * dy)));
+  return point.distanceTo(L.point(start.x + t * dx, start.y + t * dy));
+}
+
 export default function MapPanel({
   intervinientes, stickers, zonas, trazos, focos, isMando, readonly,
   onDropSticker, onMoveSticker, onContextSticker, onCreateZona, onDeleteZona,
@@ -111,6 +129,7 @@ export default function MapPanel({
   const [drawColor, setDrawColor] = useState(ZONA_COLORS[0]);
   const [penColor, setPenColor] = useState(TRAZO_COLORS[1]);
   const [baseLayer, setBaseLayer] = useState<"dark" | "sat">("dark");
+  const deletedTrazoIds = useRef<Set<string>>(new Set());
 
   const visibleStickers = useMemo(() => stickers.filter(s => s.panel === "mapa" && !s.removed && s.lat != null && s.lng != null), [stickers]);
   const mapTrazos = useMemo(() => trazos.filter(t => t.panel === "mapa"), [trazos]);
@@ -151,6 +170,20 @@ export default function MapPanel({
     });
   }
 
+  function eraseTrazoAt(ll: { lat: number; lng: number }) {
+    if (!mapRef.current) return;
+    const point = mapRef.current.latLngToLayerPoint([ll.lat, ll.lng]);
+    const hit = mapTrazos.find((trazo) => {
+      if (deletedTrazoIds.current.has(trazo.id)) return false;
+      const points = (trazo.puntos as any[]).filter(p => p.lat != null && p.lng != null).map(p => mapRef.current!.latLngToLayerPoint([p.lat, p.lng]));
+      if (points.length < 2) return false;
+      return points.some((p, index) => index > 0 && pointToSegmentDistance(point, points[index - 1], p) <= 18);
+    });
+    if (!hit) return;
+    deletedTrazoIds.current.add(hit.id);
+    onDeleteTrazo(hit.id);
+  }
+
   function handleMapClick(e: React.MouseEvent) {
     if (tool !== "select") return;
     // foco placement removed; foco via toolbar button at map center
@@ -162,7 +195,7 @@ export default function MapPanel({
     onCreateFoco(c.lat, c.lng);
   }
 
-  const drawing = tool === "pencil" || tool === "zone";
+  const drawing = tool === "pencil" || tool === "zone" || tool === "eraser";
 
   return (
     <div ref={wrapRef} className="relative h-full w-full" onDragOver={e => e.preventDefault()} onDrop={handleDrop} onClick={handleMapClick}>
@@ -179,7 +212,7 @@ export default function MapPanel({
             attribution='Tiles &copy; Esri'
           />
         )}
-        <DrawHandler tool={tool} onPoint={p => setDraftPoints(prev => [...prev, p])} onFinish={finishZone} onStrokePoint={onStrokePoint} onStrokeEnd={onStrokeEnd} />
+        <DrawHandler tool={tool} onPoint={p => setDraftPoints(prev => [...prev, p])} onFinish={finishZone} onStrokePoint={onStrokePoint} onStrokeEnd={onStrokeEnd} onErasePoint={eraseTrazoAt} />
 
         {zonas.map(z => (
           <Polygon key={z.id} positions={z.puntos.map(p => [p.lat, p.lng]) as any} pathOptions={{ color: z.color, fillColor: z.color, fillOpacity: 0.18, weight: 2 }}
@@ -251,6 +284,7 @@ export default function MapPanel({
           {!readonly && <>
             <ToolBtn active={tool === "select"} onClick={() => { setTool("select"); setDraftPoints([]); }} title="Seleccionar"><MousePointer2 className="w-3.5 h-3.5" /></ToolBtn>
             <ToolBtn active={tool === "pencil"} onClick={() => { setTool("pencil"); setDraftPoints([]); }} title="Lápiz"><Pen className="w-3.5 h-3.5" /></ToolBtn>
+            <ToolBtn active={tool === "eraser"} onClick={() => { setTool("eraser"); setDraftPoints([]); }} title="Borrar trazos"><Eraser className="w-3.5 h-3.5" /></ToolBtn>
             {isMando && <ToolBtn active={tool === "zone"} onClick={() => { setTool("zone"); setDraftPoints([]); }} title="Dibujar zona"><Pencil className="w-3.5 h-3.5" /></ToolBtn>}
             <ToolBtn active={false} onClick={addFocoAtCenter} title="Añadir foco"><Flame className="w-3.5 h-3.5 text-red-500" /></ToolBtn>
           </>}
@@ -277,7 +311,7 @@ export default function MapPanel({
             <Button size="sm" variant="ghost" onClick={() => { setTool("select"); setDraftPoints([]); }}><X className="w-3.5 h-3.5" /></Button>
           </div>
         )}
-        <div className="text-[10px] text-muted-foreground">Doble clic en trazo / zona / foco para editarlo o borrarlo</div>
+        <div className="text-[10px] text-muted-foreground">Goma: toca o arrastra sobre un trazo. Doble clic también lo elimina.</div>
       </div>
 
       {/* Zones list */}

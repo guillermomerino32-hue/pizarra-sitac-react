@@ -16,11 +16,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import {
   ArrowLeft, ChevronLeft, ChevronRight, Plus, Map as MapIcon, Square, X, AlertTriangle, FileText, ScrollText,
-  MousePointer2, Pen, Flame, Trash2,
+  MousePointer2, Pen, Flame, Trash2, Eraser,
 } from "lucide-react";
 import { toast } from "sonner";
 
-type Tool = "select" | "pencil";
+type Tool = "select" | "pencil" | "eraser";
 
 export const Route = createFileRoute("/servicio/$numero")({
   component: ServicioScreen,
@@ -433,6 +433,7 @@ function ServicioScreen() {
               <div className="flex items-center gap-1">
                 <ToolBtn active={tool === "select"} onClick={() => setTool("select")} title="Seleccionar"><MousePointer2 className="w-3.5 h-3.5" /></ToolBtn>
                 <ToolBtn active={tool === "pencil"} onClick={() => setTool("pencil")} title="Lápiz"><Pen className="w-3.5 h-3.5" /></ToolBtn>
+                <ToolBtn active={tool === "eraser"} onClick={() => setTool("eraser")} title="Borrar trazos"><Eraser className="w-3.5 h-3.5" /></ToolBtn>
                 <ToolBtn active={false} onClick={() => {
                   if (!boardRef.current) return;
                   const r = boardRef.current.getBoundingClientRect();
@@ -446,7 +447,7 @@ function ServicioScreen() {
                   ))}
                 </div>
               )}
-              <div className="text-[10px] text-muted-foreground">Doble clic en un trazo o foco para editarlo / borrarlo</div>
+              <div className="text-[10px] text-muted-foreground">Goma: toca o arrastra sobre un trazo. Doble clic también lo elimina.</div>
             </div>
           )}
 
@@ -498,7 +499,7 @@ function ServicioScreen() {
         </SheetContent>
       </Sheet>
 
-      <FocoDialog foco={editFoco} onClose={() => setEditFoco(null)} onSave={saveFoco} onDelete={deleteFoco} canEdit={true} />
+      <FocoDialog foco={editFoco} onClose={() => setEditFoco(null)} onSave={saveFoco} onDelete={deleteFoco} canEdit={!readonly} />
 
       <Dialog open={finalizeOpen} onOpenChange={setFinalizeOpen}>
         <DialogContent>
@@ -576,6 +577,8 @@ function PizarraBoard({
 }) {
   const [stroke, setStroke] = useState<{ x: number; y: number }[]>([]);
   const drawing = useRef(false);
+  const erasing = useRef(false);
+  const deletedTrazoIds = useRef<Set<string>>(new Set());
 
   function getBoardPoint(e: React.PointerEvent) {
     const r = boardRef.current!.getBoundingClientRect();
@@ -583,6 +586,13 @@ function PizarraBoard({
   }
 
   function pointerDown(e: React.PointerEvent) {
+    if (tool === "eraser") {
+      e.preventDefault();
+      erasing.current = true;
+      eraseAtPoint(getBoardPoint(e));
+      (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+      return;
+    }
     if (tool !== "pencil") return;
     e.preventDefault();
     drawing.current = true;
@@ -590,10 +600,15 @@ function PizarraBoard({
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
   }
   function pointerMove(e: React.PointerEvent) {
+    if (erasing.current) {
+      eraseAtPoint(getBoardPoint(e));
+      return;
+    }
     if (!drawing.current) return;
     setStroke(prev => [...prev, getBoardPoint(e)]);
   }
   function pointerUp() {
+    erasing.current = false;
     if (!drawing.current) return;
     drawing.current = false;
     setStroke(prev => {
@@ -601,8 +616,14 @@ function PizarraBoard({
       return [];
     });
   }
+  function eraseAtPoint(point: { x: number; y: number }) {
+    const hit = trazos.find(t => !deletedTrazoIds.current.has(t.id) && trazoTouchesPoint(t, point, 18));
+    if (!hit) return;
+    deletedTrazoIds.current.add(hit.id);
+    onDeleteTrazo(hit.id);
+  }
 
-  const interactive = tool === "pencil";
+  const interactive = tool === "pencil" || tool === "eraser";
 
   return (
     <div
@@ -610,7 +631,7 @@ function PizarraBoard({
       onDragOver={e => e.preventDefault()}
       onDrop={onDrop}
       className="absolute inset-0 pizarra-bg overflow-hidden"
-      style={{ cursor: tool === "pencil" ? "crosshair" : undefined }}
+      style={{ cursor: tool === "pencil" ? "crosshair" : tool === "eraser" ? "cell" : undefined }}
     >
       {/* SVG layer for trazos + pencil capture. Always pointer-events:auto so trazo hit-paths receive double-clicks; background paths are pointer-events:none. */}
       <svg
@@ -643,8 +664,8 @@ function PizarraBoard({
                   stroke="transparent"
                   strokeWidth={18}
                   fill="none"
-                  style={{ pointerEvents: "auto", cursor: "pointer" }}
-                  onDoubleClick={(e) => { e.stopPropagation(); if (confirm("¿Eliminar este trazo?")) onDeleteTrazo(t.id); }}
+                  style={{ pointerEvents: "auto", cursor: tool === "eraser" ? "cell" : "pointer" }}
+                  onDoubleClick={(e) => { e.stopPropagation(); onDeleteTrazo(t.id); }}
                 />
               )}
             </g>
@@ -657,7 +678,7 @@ function PizarraBoard({
 
       {/* Focos */}
       {focos.map(f => (
-        <FocoSticker key={f.id} foco={f} tool={tool} boardRef={boardRef} onMove={(x, y) => onMoveFoco(f.id, x, y)} onOpen={() => onOpenFoco(f)} onDelete={() => onDeleteFoco(f.id)} />
+        <FocoSticker key={f.id} foco={f} tool={tool} boardRef={boardRef} readonly={readonly} onMove={(x, y) => onMoveFoco(f.id, x, y)} onOpen={() => onOpenFoco(f)} />
       ))}
 
       {/* Intervinientes stickers */}
@@ -677,18 +698,18 @@ function PizarraBoard({
   );
 }
 
-function FocoSticker({ foco, tool, boardRef, onMove, onOpen, onDelete }: {
+function FocoSticker({ foco, tool, boardRef, readonly, onMove, onOpen }: {
   foco: Foco; tool: Tool;
   boardRef: React.MutableRefObject<HTMLDivElement | null>;
+  readonly?: boolean;
   onMove: (x: number, y: number) => void;
   onOpen: () => void;
-  onDelete: () => void;
 }) {
   const ref = useRef<HTMLDivElement | null>(null);
   const dragging = useRef<{ ox: number; oy: number; moved: boolean } | null>(null);
 
   function pd(e: React.PointerEvent) {
-    if (e.button !== 0 || tool !== "select") return;
+    if (readonly || e.button !== 0 || tool !== "select") return;
     const rect = ref.current!.getBoundingClientRect();
     dragging.current = { ox: e.clientX - rect.left, oy: e.clientY - rect.top, moved: false };
     ref.current!.setPointerCapture(e.pointerId);
