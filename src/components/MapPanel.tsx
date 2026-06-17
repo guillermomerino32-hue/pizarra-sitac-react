@@ -251,7 +251,6 @@ export default function MapPanel({
           {!readonly && <>
             <ToolBtn active={tool === "select"} onClick={() => { setTool("select"); setDraftPoints([]); }} title="Seleccionar"><MousePointer2 className="w-3.5 h-3.5" /></ToolBtn>
             <ToolBtn active={tool === "pencil"} onClick={() => { setTool("pencil"); setDraftPoints([]); }} title="Lápiz"><Pen className="w-3.5 h-3.5" /></ToolBtn>
-            <ToolBtn active={tool === "eraser"} onClick={() => { setTool("eraser"); setDraftPoints([]); }} title="Goma (clic en trazo/zona/foco)"><Eraser className="w-3.5 h-3.5" /></ToolBtn>
             {isMando && <ToolBtn active={tool === "zone"} onClick={() => { setTool("zone"); setDraftPoints([]); }} title="Dibujar zona"><Pencil className="w-3.5 h-3.5" /></ToolBtn>}
             <ToolBtn active={false} onClick={addFocoAtCenter} title="Añadir foco"><Flame className="w-3.5 h-3.5 text-red-500" /></ToolBtn>
           </>}
