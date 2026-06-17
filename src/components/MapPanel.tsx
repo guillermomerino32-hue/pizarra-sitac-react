@@ -277,9 +277,7 @@ export default function MapPanel({
             <Button size="sm" variant="ghost" onClick={() => { setTool("select"); setDraftPoints([]); }}><X className="w-3.5 h-3.5" /></Button>
           </div>
         )}
-        {tool === "eraser" && (
-          <div className="text-[10px] text-muted-foreground">Clic en trazo o zona para eliminarlo</div>
-        )}
+        <div className="text-[10px] text-muted-foreground">Doble clic en trazo / zona / foco para editarlo o borrarlo</div>
       </div>
 
       {/* Zones list */}
