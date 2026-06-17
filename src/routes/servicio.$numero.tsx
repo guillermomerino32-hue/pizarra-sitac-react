@@ -716,12 +716,11 @@ function FocoSticker({ foco, tool, boardRef, onMove, onOpen, onDelete }: {
   return (
     <div
       ref={ref}
-      style={{ position: "absolute", left: foco.x, top: foco.y, width: 48, height: 60, userSelect: "none", cursor: tool === "select" ? "grab" : tool === "eraser" ? "pointer" : undefined }}
+      style={{ position: "absolute", left: foco.x, top: foco.y, width: 48, height: 60, userSelect: "none", cursor: tool === "select" ? "grab" : undefined }}
       onPointerDown={pd}
       onPointerMove={pm}
       onPointerUp={pu}
       onDoubleClick={onOpen}
-      onClick={() => { if (tool === "eraser") onDelete(); }}
       title={foco.nombre}
     >
       <svg viewBox="0 0 64 64" width={48} height={48} style={{ filter: "drop-shadow(0 2px 4px rgba(0,0,0,.5))" }}>
