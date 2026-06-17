@@ -576,46 +576,13 @@ function PizarraBoard({
 }) {
   const [stroke, setStroke] = useState<{ x: number; y: number }[]>([]);
   const drawing = useRef(false);
-  const erasing = useRef(false);
-  const lastErasePoint = useRef<{ x: number; y: number } | null>(null);
-  const deletingTrazoIds = useRef(new Set<string>());
-
-  useEffect(() => {
-    const activeIds = new Set(trazos.map((trazo) => trazo.id));
-    deletingTrazoIds.current.forEach((id) => {
-      if (!activeIds.has(id)) deletingTrazoIds.current.delete(id);
-    });
-  }, [trazos]);
 
   function getBoardPoint(e: React.PointerEvent) {
     const r = boardRef.current!.getBoundingClientRect();
     return { x: e.clientX - r.left, y: e.clientY - r.top };
   }
 
-  function eraseAlongPath(from: { x: number; y: number } | null, to: { x: number; y: number }) {
-    const matches = new Set<string>();
-    for (const sample of sampleBetweenPoints(from, to)) {
-      for (const trazo of trazos) {
-        if (deletingTrazoIds.current.has(trazo.id)) continue;
-        if (trazoTouchesPoint(trazo, sample, 12)) matches.add(trazo.id);
-      }
-    }
-    matches.forEach((id) => {
-      deletingTrazoIds.current.add(id);
-      onDeleteTrazo(id);
-    });
-  }
-
   function pointerDown(e: React.PointerEvent) {
-    if (tool === "eraser") {
-      e.preventDefault();
-      erasing.current = true;
-      const point = getBoardPoint(e);
-      lastErasePoint.current = point;
-      eraseAlongPath(null, point);
-      (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-      return;
-    }
     if (tool !== "pencil") return;
     e.preventDefault();
     drawing.current = true;
@@ -623,28 +590,19 @@ function PizarraBoard({
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
   }
   function pointerMove(e: React.PointerEvent) {
-    const point = getBoardPoint(e);
-    if (drawing.current) {
-      setStroke(prev => [...prev, point]);
-      return;
-    }
-    if (!erasing.current) return;
-    eraseAlongPath(lastErasePoint.current, point);
-    lastErasePoint.current = point;
+    if (!drawing.current) return;
+    setStroke(prev => [...prev, getBoardPoint(e)]);
   }
   function pointerUp() {
-    if (drawing.current) {
-      drawing.current = false;
-      setStroke(prev => {
-        if (prev.length >= 2) onCreateTrazo(prev, penColor);
-        return [];
-      });
-    }
-    erasing.current = false;
-    lastErasePoint.current = null;
+    if (!drawing.current) return;
+    drawing.current = false;
+    setStroke(prev => {
+      if (prev.length >= 2) onCreateTrazo(prev, penColor);
+      return [];
+    });
   }
 
-  const interactive = tool === "pencil" || tool === "eraser";
+  const interactive = tool === "pencil";
 
   return (
     <div
