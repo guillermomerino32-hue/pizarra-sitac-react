@@ -610,7 +610,7 @@ function PizarraBoard({
       onDragOver={e => e.preventDefault()}
       onDrop={onDrop}
       className="absolute inset-0 pizarra-bg overflow-hidden"
-      style={{ cursor: tool === "pencil" ? "crosshair" : tool === "eraser" ? "cell" : undefined }}
+      style={{ cursor: tool === "pencil" ? "crosshair" : undefined }}
     >
       {/* SVG layer for trazos + pencil capture */}
       <svg
@@ -635,6 +635,16 @@ function PizarraBoard({
                 fill="none"
                 style={{ pointerEvents: "none" }}
               />
+              {!readonly && (
+                <path
+                  d={d}
+                  stroke="transparent"
+                  strokeWidth={18}
+                  fill="none"
+                  style={{ pointerEvents: "auto", cursor: "pointer" }}
+                  onDoubleClick={(e) => { e.stopPropagation(); if (confirm("¿Eliminar este trazo?")) onDeleteTrazo(t.id); }}
+                />
+              )}
             </g>
           );
         })}
