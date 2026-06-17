@@ -284,6 +284,7 @@ export default function MapPanel({
           {!readonly && <>
             <ToolBtn active={tool === "select"} onClick={() => { setTool("select"); setDraftPoints([]); }} title="Seleccionar"><MousePointer2 className="w-3.5 h-3.5" /></ToolBtn>
             <ToolBtn active={tool === "pencil"} onClick={() => { setTool("pencil"); setDraftPoints([]); }} title="Lápiz"><Pen className="w-3.5 h-3.5" /></ToolBtn>
+            <ToolBtn active={tool === "eraser"} onClick={() => { setTool("eraser"); setDraftPoints([]); }} title="Borrar trazos"><Eraser className="w-3.5 h-3.5" /></ToolBtn>
             {isMando && <ToolBtn active={tool === "zone"} onClick={() => { setTool("zone"); setDraftPoints([]); }} title="Dibujar zona"><Pencil className="w-3.5 h-3.5" /></ToolBtn>}
             <ToolBtn active={false} onClick={addFocoAtCenter} title="Añadir foco"><Flame className="w-3.5 h-3.5 text-red-500" /></ToolBtn>
           </>}
@@ -310,7 +311,7 @@ export default function MapPanel({
             <Button size="sm" variant="ghost" onClick={() => { setTool("select"); setDraftPoints([]); }}><X className="w-3.5 h-3.5" /></Button>
           </div>
         )}
-        <div className="text-[10px] text-muted-foreground">Doble clic en trazo / zona / foco para editarlo o borrarlo</div>
+        <div className="text-[10px] text-muted-foreground">Goma: toca o arrastra sobre un trazo. Doble clic también lo elimina.</div>
       </div>
 
       {/* Zones list */}
