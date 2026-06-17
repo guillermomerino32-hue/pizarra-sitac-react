@@ -577,6 +577,8 @@ function PizarraBoard({
 }) {
   const [stroke, setStroke] = useState<{ x: number; y: number }[]>([]);
   const drawing = useRef(false);
+  const erasing = useRef(false);
+  const deletedTrazoIds = useRef<Set<string>>(new Set());
 
   function getBoardPoint(e: React.PointerEvent) {
     const r = boardRef.current!.getBoundingClientRect();
@@ -584,6 +586,13 @@ function PizarraBoard({
   }
 
   function pointerDown(e: React.PointerEvent) {
+    if (tool === "eraser") {
+      e.preventDefault();
+      erasing.current = true;
+      eraseAtPoint(getBoardPoint(e));
+      (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+      return;
+    }
     if (tool !== "pencil") return;
     e.preventDefault();
     drawing.current = true;
@@ -591,10 +600,15 @@ function PizarraBoard({
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
   }
   function pointerMove(e: React.PointerEvent) {
+    if (erasing.current) {
+      eraseAtPoint(getBoardPoint(e));
+      return;
+    }
     if (!drawing.current) return;
     setStroke(prev => [...prev, getBoardPoint(e)]);
   }
   function pointerUp() {
+    erasing.current = false;
     if (!drawing.current) return;
     drawing.current = false;
     setStroke(prev => {
@@ -602,8 +616,14 @@ function PizarraBoard({
       return [];
     });
   }
+  function eraseAtPoint(point: { x: number; y: number }) {
+    const hit = trazos.find(t => !deletedTrazoIds.current.has(t.id) && trazoTouchesPoint(t, point, 18));
+    if (!hit) return;
+    deletedTrazoIds.current.add(hit.id);
+    onDeleteTrazo(hit.id);
+  }
 
-  const interactive = tool === "pencil";
+  const interactive = tool === "pencil" || tool === "eraser";
 
   return (
     <div
@@ -611,7 +631,7 @@ function PizarraBoard({
       onDragOver={e => e.preventDefault()}
       onDrop={onDrop}
       className="absolute inset-0 pizarra-bg overflow-hidden"
-      style={{ cursor: tool === "pencil" ? "crosshair" : undefined }}
+      style={{ cursor: tool === "pencil" ? "crosshair" : tool === "eraser" ? "cell" : undefined }}
     >
       {/* SVG layer for trazos + pencil capture. Always pointer-events:auto so trazo hit-paths receive double-clicks; background paths are pointer-events:none. */}
       <svg
@@ -644,8 +664,9 @@ function PizarraBoard({
                   stroke="transparent"
                   strokeWidth={18}
                   fill="none"
-                  style={{ pointerEvents: "auto", cursor: "pointer" }}
-                  onDoubleClick={(e) => { e.stopPropagation(); if (confirm("¿Eliminar este trazo?")) onDeleteTrazo(t.id); }}
+                  style={{ pointerEvents: "auto", cursor: tool === "eraser" ? "cell" : "pointer" }}
+                  onPointerDown={(e) => { if (tool === "eraser") { e.stopPropagation(); eraseAtPoint(getBoardPoint(e)); } }}
+                  onDoubleClick={(e) => { e.stopPropagation(); onDeleteTrazo(t.id); }}
                 />
               )}
             </g>
@@ -658,7 +679,7 @@ function PizarraBoard({
 
       {/* Focos */}
       {focos.map(f => (
-        <FocoSticker key={f.id} foco={f} tool={tool} boardRef={boardRef} onMove={(x, y) => onMoveFoco(f.id, x, y)} onOpen={() => onOpenFoco(f)} onDelete={() => onDeleteFoco(f.id)} />
+        <FocoSticker key={f.id} foco={f} tool={tool} boardRef={boardRef} readonly={readonly} onMove={(x, y) => onMoveFoco(f.id, x, y)} onOpen={() => onOpenFoco(f)} />
       ))}
 
       {/* Intervinientes stickers */}
