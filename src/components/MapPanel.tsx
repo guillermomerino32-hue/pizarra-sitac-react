@@ -184,15 +184,15 @@ export default function MapPanel({
         {zonas.map(z => (
           <Polygon key={z.id} positions={z.puntos.map(p => [p.lat, p.lng]) as any} pathOptions={{ color: z.color, fillColor: z.color, fillOpacity: 0.18, weight: 2 }}
             eventHandlers={{
-              click: () => { if (tool === "eraser") onDeleteZona(z.id); },
+              dblclick: () => { if (!readonly && isMando && confirm(`¿Eliminar ${z.nombre}?`)) onDeleteZona(z.id); },
             }} />
         ))}
 
         {mapTrazos.map(t => (
           <Polyline key={t.id} positions={(t.puntos as any[]).map(p => [p.lat, p.lng]) as any}
-            pathOptions={{ color: t.color, weight: tool === "eraser" ? 12 : 3, opacity: tool === "eraser" ? 0.6 : 0.9 }}
+            pathOptions={{ color: t.color, weight: 3, opacity: 0.9 }}
             eventHandlers={{
-              click: () => { if (tool === "eraser") onDeleteTrazo(t.id); },
+              dblclick: () => { if (!readonly && confirm("¿Eliminar este trazo?")) onDeleteTrazo(t.id); },
             }} />
         ))}
 
@@ -209,11 +209,10 @@ export default function MapPanel({
         )}
 
         {mapFocos.map(f => (
-          <Marker key={f.id} position={[f.lat!, f.lng!]} icon={focoIcon(f)} draggable={tool === "select"}
+          <Marker key={f.id} position={[f.lat!, f.lng!]} icon={focoIcon(f)} draggable={tool === "select" && !readonly}
             eventHandlers={{
               dragend: (e) => { const ll = (e.target as L.Marker).getLatLng(); onMoveFoco(f.id, ll.lat, ll.lng); },
               dblclick: () => onOpenFoco(f),
-              click: () => { if (tool === "eraser") onDeleteFoco(f.id); },
             }} />
         ))}
 
