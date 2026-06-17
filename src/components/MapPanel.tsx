@@ -4,9 +4,9 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { FUNCION_COLORS, RIVAS_CENTER, RIVAS_ZOOM, TRAZO_COLORS, ZONA_COLORS, type Foco, type Interviniente, type Sticker, type Trazo, type Zona } from "@/lib/domain";
 import { Button } from "@/components/ui/button";
-import { Pencil, Check, X, Trash2, Pen, Eraser, MousePointer2, Flame } from "lucide-react";
+import { Pencil, Check, X, Trash2, Pen, MousePointer2, Flame } from "lucide-react";
 
-type Tool = "select" | "pencil" | "eraser" | "zone";
+type Tool = "select" | "pencil" | "zone";
 
 interface Props {
   servicioId: string;
