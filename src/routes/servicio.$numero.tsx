@@ -665,7 +665,6 @@ function PizarraBoard({
                   strokeWidth={18}
                   fill="none"
                   style={{ pointerEvents: "auto", cursor: tool === "eraser" ? "cell" : "pointer" }}
-                  onPointerDown={(e) => { if (tool === "eraser") { e.stopPropagation(); eraseAtPoint(getBoardPoint(e)); } }}
                   onDoubleClick={(e) => { e.stopPropagation(); onDeleteTrazo(t.id); }}
                 />
               )}
@@ -699,18 +698,18 @@ function PizarraBoard({
   );
 }
 
-function FocoSticker({ foco, tool, boardRef, onMove, onOpen, onDelete }: {
+function FocoSticker({ foco, tool, boardRef, readonly, onMove, onOpen }: {
   foco: Foco; tool: Tool;
   boardRef: React.MutableRefObject<HTMLDivElement | null>;
+  readonly?: boolean;
   onMove: (x: number, y: number) => void;
   onOpen: () => void;
-  onDelete: () => void;
 }) {
   const ref = useRef<HTMLDivElement | null>(null);
   const dragging = useRef<{ ox: number; oy: number; moved: boolean } | null>(null);
 
   function pd(e: React.PointerEvent) {
-    if (e.button !== 0 || tool !== "select") return;
+    if (readonly || e.button !== 0 || tool !== "select") return;
     const rect = ref.current!.getBoundingClientRect();
     dragging.current = { ox: e.clientX - rect.left, oy: e.clientY - rect.top, moved: false };
     ref.current!.setPointerCapture(e.pointerId);
