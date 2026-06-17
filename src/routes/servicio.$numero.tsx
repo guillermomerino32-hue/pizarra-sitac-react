@@ -20,7 +20,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
-type Tool = "select" | "pencil" | "eraser";
+type Tool = "select" | "pencil";
 
 export const Route = createFileRoute("/servicio/$numero")({
   component: ServicioScreen,
