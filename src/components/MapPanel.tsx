@@ -108,6 +108,14 @@ function MapRefBridge({ mapRef, dragging }: { mapRef: React.MutableRefObject<L.M
   return null;
 }
 
+function pointToSegmentDistance(point: L.Point, start: L.Point, end: L.Point) {
+  const dx = end.x - start.x;
+  const dy = end.y - start.y;
+  if (dx === 0 && dy === 0) return point.distanceTo(start);
+  const t = Math.max(0, Math.min(1, ((point.x - start.x) * dx + (point.y - start.y) * dy) / (dx * dx + dy * dy)));
+  return point.distanceTo(L.point(start.x + t * dx, start.y + t * dy));
+}
+
 export default function MapPanel({
   intervinientes, stickers, zonas, trazos, focos, isMando, readonly,
   onDropSticker, onMoveSticker, onContextSticker, onCreateZona, onDeleteZona,
@@ -121,6 +129,7 @@ export default function MapPanel({
   const [drawColor, setDrawColor] = useState(ZONA_COLORS[0]);
   const [penColor, setPenColor] = useState(TRAZO_COLORS[1]);
   const [baseLayer, setBaseLayer] = useState<"dark" | "sat">("dark");
+  const deletedTrazoIds = useRef<Set<string>>(new Set());
 
   const visibleStickers = useMemo(() => stickers.filter(s => s.panel === "mapa" && !s.removed && s.lat != null && s.lng != null), [stickers]);
   const mapTrazos = useMemo(() => trazos.filter(t => t.panel === "mapa"), [trazos]);
@@ -161,6 +170,20 @@ export default function MapPanel({
     });
   }
 
+  function eraseTrazoAt(ll: { lat: number; lng: number }) {
+    if (!mapRef.current) return;
+    const point = mapRef.current.latLngToLayerPoint([ll.lat, ll.lng]);
+    const hit = mapTrazos.find((trazo) => {
+      if (deletedTrazoIds.current.has(trazo.id)) return false;
+      const points = (trazo.puntos as any[]).filter(p => p.lat != null && p.lng != null).map(p => mapRef.current!.latLngToLayerPoint([p.lat, p.lng]));
+      if (points.length < 2) return false;
+      return points.some((p, index) => index > 0 && pointToSegmentDistance(point, points[index - 1], p) <= 18);
+    });
+    if (!hit) return;
+    deletedTrazoIds.current.add(hit.id);
+    onDeleteTrazo(hit.id);
+  }
+
   function handleMapClick(e: React.MouseEvent) {
     if (tool !== "select") return;
     // foco placement removed; foco via toolbar button at map center
@@ -172,7 +195,7 @@ export default function MapPanel({
     onCreateFoco(c.lat, c.lng);
   }
 
-  const drawing = tool === "pencil" || tool === "zone";
+  const drawing = tool === "pencil" || tool === "zone" || tool === "eraser";
 
   return (
     <div ref={wrapRef} className="relative h-full w-full" onDragOver={e => e.preventDefault()} onDrop={handleDrop} onClick={handleMapClick}>
@@ -189,7 +212,7 @@ export default function MapPanel({
             attribution='Tiles &copy; Esri'
           />
         )}
-        <DrawHandler tool={tool} onPoint={p => setDraftPoints(prev => [...prev, p])} onFinish={finishZone} onStrokePoint={onStrokePoint} onStrokeEnd={onStrokeEnd} />
+        <DrawHandler tool={tool} onPoint={p => setDraftPoints(prev => [...prev, p])} onFinish={finishZone} onStrokePoint={onStrokePoint} onStrokeEnd={onStrokeEnd} onErasePoint={eraseTrazoAt} />
 
         {zonas.map(z => (
           <Polygon key={z.id} positions={z.puntos.map(p => [p.lat, p.lng]) as any} pathOptions={{ color: z.color, fillColor: z.color, fillOpacity: 0.18, weight: 2 }}
