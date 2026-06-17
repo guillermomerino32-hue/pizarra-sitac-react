@@ -16,7 +16,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import {
   ArrowLeft, ChevronLeft, ChevronRight, Plus, Map as MapIcon, Square, X, AlertTriangle, FileText, ScrollText,
-  MousePointer2, Pen, Eraser, Flame, Trash2,
+  MousePointer2, Pen, Flame, Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
 
