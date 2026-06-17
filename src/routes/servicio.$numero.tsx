@@ -615,13 +615,13 @@ function PizarraBoard({
       {/* SVG layer for trazos + pencil capture. Always pointer-events:auto so trazo hit-paths receive double-clicks; background paths are pointer-events:none. */}
       <svg
         className="absolute inset-0 w-full h-full"
-        style={{ pointerEvents: interactive ? "auto" : "none" }}
+        style={{ pointerEvents: "auto" }}
         onPointerDown={pointerDown}
         onPointerMove={pointerMove}
         onPointerUp={pointerUp}
       >
-        {/* invisible full-area rect when pencil active to capture strokes */}
-        {interactive && <rect x={0} y={0} width="100%" height="100%" fill="transparent" />}
+        {/* invisible full-area rect to capture strokes / let through to wrapper */}
+        <rect x={0} y={0} width="100%" height="100%" fill="transparent" style={{ pointerEvents: interactive ? "auto" : "none" }} />
         {trazos.map(t => {
           const pts = (t.puntos as any[]).filter(p => p.x != null && p.y != null);
           if (pts.length < 2) return null;
