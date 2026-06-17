@@ -16,11 +16,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import {
   ArrowLeft, ChevronLeft, ChevronRight, Plus, Map as MapIcon, Square, X, AlertTriangle, FileText, ScrollText,
-  MousePointer2, Pen, Flame, Trash2,
+  MousePointer2, Pen, Flame, Trash2, Eraser,
 } from "lucide-react";
 import { toast } from "sonner";
 
-type Tool = "select" | "pencil";
+type Tool = "select" | "pencil" | "eraser";
 
 export const Route = createFileRoute("/servicio/$numero")({
   component: ServicioScreen,
@@ -433,6 +433,7 @@ function ServicioScreen() {
               <div className="flex items-center gap-1">
                 <ToolBtn active={tool === "select"} onClick={() => setTool("select")} title="Seleccionar"><MousePointer2 className="w-3.5 h-3.5" /></ToolBtn>
                 <ToolBtn active={tool === "pencil"} onClick={() => setTool("pencil")} title="Lápiz"><Pen className="w-3.5 h-3.5" /></ToolBtn>
+                <ToolBtn active={tool === "eraser"} onClick={() => setTool("eraser")} title="Borrar trazos"><Eraser className="w-3.5 h-3.5" /></ToolBtn>
                 <ToolBtn active={false} onClick={() => {
                   if (!boardRef.current) return;
                   const r = boardRef.current.getBoundingClientRect();
@@ -446,7 +447,7 @@ function ServicioScreen() {
                   ))}
                 </div>
               )}
-              <div className="text-[10px] text-muted-foreground">Doble clic en un trazo o foco para editarlo / borrarlo</div>
+              <div className="text-[10px] text-muted-foreground">Goma: toca o arrastra sobre un trazo. Doble clic también lo elimina.</div>
             </div>
           )}
 
@@ -498,7 +499,7 @@ function ServicioScreen() {
         </SheetContent>
       </Sheet>
 
-      <FocoDialog foco={editFoco} onClose={() => setEditFoco(null)} onSave={saveFoco} onDelete={deleteFoco} canEdit={true} />
+      <FocoDialog foco={editFoco} onClose={() => setEditFoco(null)} onSave={saveFoco} onDelete={deleteFoco} canEdit={!readonly} />
 
       <Dialog open={finalizeOpen} onOpenChange={setFinalizeOpen}>
         <DialogContent>
