@@ -4,9 +4,9 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { FUNCION_COLORS, RIVAS_CENTER, RIVAS_ZOOM, TRAZO_COLORS, ZONA_COLORS, type Foco, type Interviniente, type Sticker, type Trazo, type Zona } from "@/lib/domain";
 import { Button } from "@/components/ui/button";
-import { Pencil, Check, X, Trash2, Pen, Eraser, MousePointer2, Flame } from "lucide-react";
+import { Pencil, Check, X, Trash2, Pen, MousePointer2, Flame } from "lucide-react";
 
-type Tool = "select" | "pencil" | "eraser" | "zone";
+type Tool = "select" | "pencil" | "zone";
 
 interface Props {
   servicioId: string;
@@ -184,15 +184,15 @@ export default function MapPanel({
         {zonas.map(z => (
           <Polygon key={z.id} positions={z.puntos.map(p => [p.lat, p.lng]) as any} pathOptions={{ color: z.color, fillColor: z.color, fillOpacity: 0.18, weight: 2 }}
             eventHandlers={{
-              click: () => { if (tool === "eraser") onDeleteZona(z.id); },
+              dblclick: () => { if (!readonly && isMando && confirm(`¿Eliminar ${z.nombre}?`)) onDeleteZona(z.id); },
             }} />
         ))}
 
         {mapTrazos.map(t => (
           <Polyline key={t.id} positions={(t.puntos as any[]).map(p => [p.lat, p.lng]) as any}
-            pathOptions={{ color: t.color, weight: tool === "eraser" ? 12 : 3, opacity: tool === "eraser" ? 0.6 : 0.9 }}
+            pathOptions={{ color: t.color, weight: 3, opacity: 0.9 }}
             eventHandlers={{
-              click: () => { if (tool === "eraser") onDeleteTrazo(t.id); },
+              dblclick: () => { if (!readonly && confirm("¿Eliminar este trazo?")) onDeleteTrazo(t.id); },
             }} />
         ))}
 
@@ -209,11 +209,10 @@ export default function MapPanel({
         )}
 
         {mapFocos.map(f => (
-          <Marker key={f.id} position={[f.lat!, f.lng!]} icon={focoIcon(f)} draggable={tool === "select"}
+          <Marker key={f.id} position={[f.lat!, f.lng!]} icon={focoIcon(f)} draggable={tool === "select" && !readonly}
             eventHandlers={{
               dragend: (e) => { const ll = (e.target as L.Marker).getLatLng(); onMoveFoco(f.id, ll.lat, ll.lng); },
               dblclick: () => onOpenFoco(f),
-              click: () => { if (tool === "eraser") onDeleteFoco(f.id); },
             }} />
         ))}
 
@@ -252,7 +251,6 @@ export default function MapPanel({
           {!readonly && <>
             <ToolBtn active={tool === "select"} onClick={() => { setTool("select"); setDraftPoints([]); }} title="Seleccionar"><MousePointer2 className="w-3.5 h-3.5" /></ToolBtn>
             <ToolBtn active={tool === "pencil"} onClick={() => { setTool("pencil"); setDraftPoints([]); }} title="Lápiz"><Pen className="w-3.5 h-3.5" /></ToolBtn>
-            <ToolBtn active={tool === "eraser"} onClick={() => { setTool("eraser"); setDraftPoints([]); }} title="Goma (clic en trazo/zona/foco)"><Eraser className="w-3.5 h-3.5" /></ToolBtn>
             {isMando && <ToolBtn active={tool === "zone"} onClick={() => { setTool("zone"); setDraftPoints([]); }} title="Dibujar zona"><Pencil className="w-3.5 h-3.5" /></ToolBtn>}
             <ToolBtn active={false} onClick={addFocoAtCenter} title="Añadir foco"><Flame className="w-3.5 h-3.5 text-red-500" /></ToolBtn>
           </>}
@@ -279,9 +277,7 @@ export default function MapPanel({
             <Button size="sm" variant="ghost" onClick={() => { setTool("select"); setDraftPoints([]); }}><X className="w-3.5 h-3.5" /></Button>
           </div>
         )}
-        {tool === "eraser" && (
-          <div className="text-[10px] text-muted-foreground">Clic en trazo o zona para eliminarlo</div>
-        )}
+        <div className="text-[10px] text-muted-foreground">Doble clic en trazo / zona / foco para editarlo o borrarlo</div>
       </div>
 
       {/* Zones list */}

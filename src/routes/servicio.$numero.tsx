@@ -16,11 +16,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import {
   ArrowLeft, ChevronLeft, ChevronRight, Plus, Map as MapIcon, Square, X, AlertTriangle, FileText, ScrollText,
-  MousePointer2, Pen, Eraser, Flame, Trash2,
+  MousePointer2, Pen, Flame, Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
 
-type Tool = "select" | "pencil" | "eraser";
+type Tool = "select" | "pencil";
 
 export const Route = createFileRoute("/servicio/$numero")({
   component: ServicioScreen,
@@ -433,7 +433,6 @@ function ServicioScreen() {
               <div className="flex items-center gap-1">
                 <ToolBtn active={tool === "select"} onClick={() => setTool("select")} title="Seleccionar"><MousePointer2 className="w-3.5 h-3.5" /></ToolBtn>
                 <ToolBtn active={tool === "pencil"} onClick={() => setTool("pencil")} title="Lápiz"><Pen className="w-3.5 h-3.5" /></ToolBtn>
-                <ToolBtn active={tool === "eraser"} onClick={() => setTool("eraser")} title="Goma"><Eraser className="w-3.5 h-3.5" /></ToolBtn>
                 <ToolBtn active={false} onClick={() => {
                   if (!boardRef.current) return;
                   const r = boardRef.current.getBoundingClientRect();
@@ -447,7 +446,7 @@ function ServicioScreen() {
                   ))}
                 </div>
               )}
-              {tool === "eraser" && <div className="text-[10px] text-muted-foreground">Clic en trazo/foco para borrar</div>}
+              <div className="text-[10px] text-muted-foreground">Doble clic en un trazo o foco para editarlo / borrarlo</div>
             </div>
           )}
 
@@ -577,46 +576,13 @@ function PizarraBoard({
 }) {
   const [stroke, setStroke] = useState<{ x: number; y: number }[]>([]);
   const drawing = useRef(false);
-  const erasing = useRef(false);
-  const lastErasePoint = useRef<{ x: number; y: number } | null>(null);
-  const deletingTrazoIds = useRef(new Set<string>());
-
-  useEffect(() => {
-    const activeIds = new Set(trazos.map((trazo) => trazo.id));
-    deletingTrazoIds.current.forEach((id) => {
-      if (!activeIds.has(id)) deletingTrazoIds.current.delete(id);
-    });
-  }, [trazos]);
 
   function getBoardPoint(e: React.PointerEvent) {
     const r = boardRef.current!.getBoundingClientRect();
     return { x: e.clientX - r.left, y: e.clientY - r.top };
   }
 
-  function eraseAlongPath(from: { x: number; y: number } | null, to: { x: number; y: number }) {
-    const matches = new Set<string>();
-    for (const sample of sampleBetweenPoints(from, to)) {
-      for (const trazo of trazos) {
-        if (deletingTrazoIds.current.has(trazo.id)) continue;
-        if (trazoTouchesPoint(trazo, sample, 12)) matches.add(trazo.id);
-      }
-    }
-    matches.forEach((id) => {
-      deletingTrazoIds.current.add(id);
-      onDeleteTrazo(id);
-    });
-  }
-
   function pointerDown(e: React.PointerEvent) {
-    if (tool === "eraser") {
-      e.preventDefault();
-      erasing.current = true;
-      const point = getBoardPoint(e);
-      lastErasePoint.current = point;
-      eraseAlongPath(null, point);
-      (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-      return;
-    }
     if (tool !== "pencil") return;
     e.preventDefault();
     drawing.current = true;
@@ -624,28 +590,19 @@ function PizarraBoard({
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
   }
   function pointerMove(e: React.PointerEvent) {
-    const point = getBoardPoint(e);
-    if (drawing.current) {
-      setStroke(prev => [...prev, point]);
-      return;
-    }
-    if (!erasing.current) return;
-    eraseAlongPath(lastErasePoint.current, point);
-    lastErasePoint.current = point;
+    if (!drawing.current) return;
+    setStroke(prev => [...prev, getBoardPoint(e)]);
   }
   function pointerUp() {
-    if (drawing.current) {
-      drawing.current = false;
-      setStroke(prev => {
-        if (prev.length >= 2) onCreateTrazo(prev, penColor);
-        return [];
-      });
-    }
-    erasing.current = false;
-    lastErasePoint.current = null;
+    if (!drawing.current) return;
+    drawing.current = false;
+    setStroke(prev => {
+      if (prev.length >= 2) onCreateTrazo(prev, penColor);
+      return [];
+    });
   }
 
-  const interactive = tool === "pencil" || tool === "eraser";
+  const interactive = tool === "pencil";
 
   return (
     <div
@@ -653,16 +610,18 @@ function PizarraBoard({
       onDragOver={e => e.preventDefault()}
       onDrop={onDrop}
       className="absolute inset-0 pizarra-bg overflow-hidden"
-      style={{ cursor: tool === "pencil" ? "crosshair" : tool === "eraser" ? "cell" : undefined }}
+      style={{ cursor: tool === "pencil" ? "crosshair" : undefined }}
     >
-      {/* SVG layer for trazos + pencil capture */}
+      {/* SVG layer for trazos + pencil capture. Always pointer-events:auto so trazo hit-paths receive double-clicks; background paths are pointer-events:none. */}
       <svg
         className="absolute inset-0 w-full h-full"
-        style={{ pointerEvents: interactive ? "auto" : "none" }}
+        style={{ pointerEvents: "auto" }}
         onPointerDown={pointerDown}
         onPointerMove={pointerMove}
         onPointerUp={pointerUp}
       >
+        {/* invisible full-area rect to capture strokes / let through to wrapper */}
+        <rect x={0} y={0} width="100%" height="100%" fill="transparent" style={{ pointerEvents: interactive ? "auto" : "none" }} />
         {trazos.map(t => {
           const pts = (t.puntos as any[]).filter(p => p.x != null && p.y != null);
           if (pts.length < 2) return null;
@@ -678,6 +637,16 @@ function PizarraBoard({
                 fill="none"
                 style={{ pointerEvents: "none" }}
               />
+              {!readonly && (
+                <path
+                  d={d}
+                  stroke="transparent"
+                  strokeWidth={18}
+                  fill="none"
+                  style={{ pointerEvents: "auto", cursor: "pointer" }}
+                  onDoubleClick={(e) => { e.stopPropagation(); if (confirm("¿Eliminar este trazo?")) onDeleteTrazo(t.id); }}
+                />
+              )}
             </g>
           );
         })}
@@ -747,12 +716,11 @@ function FocoSticker({ foco, tool, boardRef, onMove, onOpen, onDelete }: {
   return (
     <div
       ref={ref}
-      style={{ position: "absolute", left: foco.x, top: foco.y, width: 48, height: 60, userSelect: "none", cursor: tool === "select" ? "grab" : tool === "eraser" ? "pointer" : undefined }}
+      style={{ position: "absolute", left: foco.x, top: foco.y, width: 48, height: 60, userSelect: "none", cursor: tool === "select" ? "grab" : undefined }}
       onPointerDown={pd}
       onPointerMove={pm}
       onPointerUp={pu}
       onDoubleClick={onOpen}
-      onClick={() => { if (tool === "eraser") onDelete(); }}
       title={foco.nombre}
     >
       <svg viewBox="0 0 64 64" width={48} height={48} style={{ filter: "drop-shadow(0 2px 4px rgba(0,0,0,.5))" }}>
