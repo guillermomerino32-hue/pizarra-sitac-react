@@ -433,7 +433,6 @@ function ServicioScreen() {
               <div className="flex items-center gap-1">
                 <ToolBtn active={tool === "select"} onClick={() => setTool("select")} title="Seleccionar"><MousePointer2 className="w-3.5 h-3.5" /></ToolBtn>
                 <ToolBtn active={tool === "pencil"} onClick={() => setTool("pencil")} title="Lápiz"><Pen className="w-3.5 h-3.5" /></ToolBtn>
-                <ToolBtn active={tool === "eraser"} onClick={() => setTool("eraser")} title="Goma"><Eraser className="w-3.5 h-3.5" /></ToolBtn>
                 <ToolBtn active={false} onClick={() => {
                   if (!boardRef.current) return;
                   const r = boardRef.current.getBoundingClientRect();
@@ -447,7 +446,7 @@ function ServicioScreen() {
                   ))}
                 </div>
               )}
-              {tool === "eraser" && <div className="text-[10px] text-muted-foreground">Clic en trazo/foco para borrar</div>}
+              <div className="text-[10px] text-muted-foreground">Doble clic en un trazo o foco para editarlo / borrarlo</div>
             </div>
           )}
 
