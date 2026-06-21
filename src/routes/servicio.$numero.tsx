@@ -262,6 +262,7 @@ function ServicioScreen() {
   async function deleteTrazo(id: string) {
     const { error } = await (supabase.from as any)("trazos").delete().eq("id", id);
     if (error) console.error("Error deleting trazo:", error);
+    else setTrazos(prev => prev.filter(t => t.id !== id));
   }
 
   // Focos
@@ -289,6 +290,7 @@ function ServicioScreen() {
   async function deleteFoco(id: string) {
     const { error } = await (supabase.from as any)("focos").delete().eq("id", id);
     if (error) console.error("Error deleting foco:", error);
+    else setFocos(prev => prev.filter(f => f.id !== id));
   }
 
   async function finalizarServicio() {
