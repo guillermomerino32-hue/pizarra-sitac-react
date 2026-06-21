@@ -243,7 +243,13 @@ function ServicioScreen() {
     if (error) toast.error(error.message);
   }
   async function deleteZona(id: string) {
-    await (supabase.from as any)("zonas").delete().eq("id", id);
+    const { error } = await (supabase.from as any)("zonas").delete().eq("id", id);
+    if (error) {
+      console.error("Error deleting zona:", error);
+      toast.error(error.message);
+    } else {
+      setZonas(prev => prev.filter(z => z.id !== id));
+    }
   }
 
   // Trazos
