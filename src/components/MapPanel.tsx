@@ -64,37 +64,82 @@ function DrawHandler({ tool, onPoint, onFinish, onStrokePoint, onStrokeEnd, onEr
 }) {
   const drawingStroke = useRef(false);
   const erasingStroke = useRef(false);
-  useMapEvents({
+  const map = useMapEvents({
     click(e) {
       if (tool === "zone") onPoint({ lat: e.latlng.lat, lng: e.latlng.lng });
     },
     dblclick() { if (tool === "zone") onFinish(); },
     mousedown(e) {
-      if (tool === "eraser") {
-        erasingStroke.current = true;
-        onErasePoint({ lat: e.latlng.lat, lng: e.latlng.lng });
-      }
       if (tool === "pencil") {
         drawingStroke.current = true;
         onStrokePoint({ lat: e.latlng.lat, lng: e.latlng.lng });
       }
     },
     mousemove(e) {
-      if (tool === "eraser" && erasingStroke.current) {
-        onErasePoint({ lat: e.latlng.lat, lng: e.latlng.lng });
-      }
       if (tool === "pencil" && drawingStroke.current) {
         onStrokePoint({ lat: e.latlng.lat, lng: e.latlng.lng });
       }
     },
     mouseup() {
-      if (tool === "eraser") erasingStroke.current = false;
       if (tool === "pencil" && drawingStroke.current) {
         drawingStroke.current = false;
         onStrokeEnd();
       }
     },
   });
+
+  // Native listeners for eraser — Leaflet's mousemove gets suppressed while dragging is disabled
+  useEffect(() => {
+    if (tool !== "eraser") return;
+    const container = map.getContainer();
+    const toLatLng = (clientX: number, clientY: number) => {
+      const rect = container.getBoundingClientRect();
+      const point = L.point(clientX - rect.left, clientY - rect.top);
+      const ll = map.containerPointToLatLng(point);
+      return { lat: ll.lat, lng: ll.lng };
+    };
+    const start = (x: number, y: number) => {
+      erasingStroke.current = true;
+      onErasePoint(toLatLng(x, y));
+    };
+    const move = (x: number, y: number) => {
+      if (!erasingStroke.current) return;
+      onErasePoint(toLatLng(x, y));
+    };
+    const end = () => { erasingStroke.current = false; };
+
+    const onMouseDown = (e: MouseEvent) => { e.preventDefault(); start(e.clientX, e.clientY); };
+    const onMouseMove = (e: MouseEvent) => move(e.clientX, e.clientY);
+    const onMouseUp = () => end();
+    const onTouchStart = (e: TouchEvent) => {
+      if (e.touches.length !== 1) return;
+      e.preventDefault();
+      start(e.touches[0].clientX, e.touches[0].clientY);
+    };
+    const onTouchMove = (e: TouchEvent) => {
+      if (e.touches.length !== 1) return;
+      e.preventDefault();
+      move(e.touches[0].clientX, e.touches[0].clientY);
+    };
+    const onTouchEnd = () => end();
+
+    container.addEventListener("mousedown", onMouseDown);
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("mouseup", onMouseUp);
+    container.addEventListener("touchstart", onTouchStart, { passive: false });
+    container.addEventListener("touchmove", onTouchMove, { passive: false });
+    window.addEventListener("touchend", onTouchEnd);
+    return () => {
+      container.removeEventListener("mousedown", onMouseDown);
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mouseup", onMouseUp);
+      container.removeEventListener("touchstart", onTouchStart);
+      container.removeEventListener("touchmove", onTouchMove);
+      window.removeEventListener("touchend", onTouchEnd);
+      erasingStroke.current = false;
+    };
+  }, [tool, map, onErasePoint]);
+
   return null;
 }
 
