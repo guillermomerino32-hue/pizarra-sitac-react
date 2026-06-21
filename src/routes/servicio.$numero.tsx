@@ -260,7 +260,8 @@ function ServicioScreen() {
     });
   }
   async function deleteTrazo(id: string) {
-    await (supabase.from as any)("trazos").delete().eq("id", id);
+    const { error } = await (supabase.from as any)("trazos").delete().eq("id", id);
+    if (error) console.error("Error deleting trazo:", error);
   }
 
   // Focos
@@ -286,7 +287,8 @@ function ServicioScreen() {
     await (supabase.from as any)("focos").update({ nombre, info, updated_at: new Date().toISOString() }).eq("id", id);
   }
   async function deleteFoco(id: string) {
-    await (supabase.from as any)("focos").delete().eq("id", id);
+    const { error } = await (supabase.from as any)("focos").delete().eq("id", id);
+    if (error) console.error("Error deleting foco:", error);
   }
 
   async function finalizarServicio() {
@@ -767,7 +769,7 @@ function FocoDialog({ foco, onClose, onSave, onDelete, canEdit }: {
   if (!foco) return null;
   return (
     <Dialog open={!!foco} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent>
+      <DialogContent className="z-[2000]">
         <DialogHeader><DialogTitle className="flex items-center gap-2"><Flame className="w-4 h-4 text-red-500" />Foco</DialogTitle></DialogHeader>
         <div className="space-y-3">
           <div><Label>Nombre</Label><Input value={nombre} disabled={!canEdit} onChange={e => setNombre(e.target.value)} /></div>
