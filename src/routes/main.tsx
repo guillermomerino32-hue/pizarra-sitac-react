@@ -7,17 +7,17 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Shield, Plus, LogIn, LogOut, FileText, History } from "lucide-react";
+import { Shield, Plus, LogIn, LogOut, FileText, X, Users } from "lucide-react";
 import { toast } from "sonner";
+import { generarPdfServicio } from "@/lib/pdf";
 
 export const Route = createFileRoute("/main")({
   component: MainScreen,
 });
 
 function MainScreen() {
-  const { session, logout } = useAuth();
+  const { session, loading, logout } = useAuth();
   const navigate = useNavigate();
-  const [historial, setHistorial] = useState<any[]>([]);
   const [activos, setActivos] = useState<Servicio[]>([]);
   const [finalizados, setFinalizados] = useState<Servicio[]>([]);
   const [newOpen, setNewOpen] = useState(false);
@@ -25,22 +25,24 @@ function MainScreen() {
   const [numero, setNumero] = useState("");
 
   useEffect(() => {
-    if (!session) navigate({ to: "/" });
-  }, [session, navigate]);
+    if (!loading && !session) navigate({ to: "/" });
+  }, [session, loading, navigate]);
 
   async function reloadServicios() {
     const { data: act } = await supabase.from("servicios").select("*").eq("estado", "activo").order("created_at", { ascending: false });
     setActivos((act as any) ?? []);
-    const { data: fin } = await supabase.from("servicios").select("*").eq("estado", "finalizado").order("finished_at", { ascending: false }).limit(20);
-    setFinalizados((fin as any) ?? []);
-    const { data: hist } = await supabase.from("historial").select("*").order("fecha", { ascending: false }).limit(50);
-    setHistorial(hist ?? []);
+    if (session?.role !== "voluntario") {
+      const { data: fin } = await supabase.from("servicios").select("*").eq("estado", "finalizado").order("finished_at", { ascending: false }).limit(30);
+      setFinalizados((fin as any) ?? []);
+    }
   }
 
-  useEffect(() => {
-    if (!session) return;
-    reloadServicios();
-  }, [session]);
+  useEffect(() => { if (session) reloadServicios(); }, [session]);
+
+  if (loading) return <div className="min-h-screen flex items-center justify-center text-muted-foreground">Cargando…</div>;
+  if (!session) return null;
+
+  const canMando = session.role === "mando" || session.role === "admin";
 
   async function reabrirServicio(s: Servicio) {
     const { data: exists } = await supabase.from("servicios").select("id").eq("numero", s.numero).eq("estado", "activo").maybeSingle();
@@ -50,7 +52,21 @@ function MainScreen() {
     navigate({ to: "/servicio/$numero", params: { numero: String(s.numero) } });
   }
 
-  if (!session) return null;
+  async function cerrarServicio(s: Servicio) {
+    if (!confirm(`¿Cerrar el servicio #${s.numero}?`)) return;
+    const { error } = await supabase.from("servicios").update({ estado: "finalizado", finished_at: new Date().toISOString() } as any).eq("id", s.id);
+    if (error) { toast.error(error.message); return; }
+    toast.success(`Servicio #${s.numero} cerrado`);
+    reloadServicios();
+  }
+
+  async function descargarPdf(s: Servicio) {
+    try {
+      await generarPdfServicio(s);
+    } catch (e: any) {
+      toast.error("Error generando PDF: " + (e?.message ?? e));
+    }
+  }
 
   async function crearServicio() {
     const n = parseInt(numero, 10);
@@ -88,6 +104,9 @@ function MainScreen() {
               <div className="text-xs text-muted-foreground uppercase tracking-wider">Indicativo</div>
               <div className="font-mono font-bold">{session.indicativo} · <span className="text-primary uppercase text-xs">{session.role}</span></div>
             </div>
+            {session.role === "admin" && (
+              <Button variant="outline" size="sm" onClick={() => navigate({ to: "/admin" })}><Users className="w-4 h-4 mr-1" /> Usuarios</Button>
+            )}
             <Button variant="ghost" size="sm" onClick={logout}><LogOut className="w-4 h-4" /></Button>
           </div>
         </div>
@@ -95,7 +114,7 @@ function MainScreen() {
 
       <main className="max-w-6xl mx-auto px-4 py-8 space-y-8">
         <section className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {session.role === "mando" && (
+          {canMando && (
             <button onClick={() => setNewOpen(true)} className="bg-card border-2 border-primary/40 hover:border-primary rounded-lg p-6 text-left transition-colors">
               <Plus className="w-7 h-7 text-primary mb-3" />
               <h2 className="text-lg font-bold uppercase tracking-wide">Nuevo Servicio</h2>
@@ -112,57 +131,44 @@ function MainScreen() {
         {activos.length > 0 && (
           <section>
             <h3 className="text-xs uppercase tracking-widest text-muted-foreground mb-3">Servicios activos</h3>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
               {activos.map(s => (
-                <button key={s.id} onClick={() => navigate({ to: "/servicio/$numero", params: { numero: String(s.numero) } })} className="bg-card border rounded p-3 text-left hover:border-primary">
-                  <div className="text-xs text-muted-foreground">#</div>
-                  <div className="text-2xl font-mono font-bold text-primary">{s.numero}</div>
-                  <div className="text-xs text-muted-foreground">{new Date(s.created_at).toLocaleString("es-ES")}</div>
-                </button>
+                <div key={s.id} className="bg-card border rounded p-3 flex flex-col gap-2 hover:border-primary">
+                  <button onClick={() => navigate({ to: "/servicio/$numero", params: { numero: String(s.numero) } })} className="text-left">
+                    <div className="text-xs text-muted-foreground">#</div>
+                    <div className="text-2xl font-mono font-bold text-primary">{s.numero}</div>
+                    <div className="text-xs text-muted-foreground">{new Date(s.created_at).toLocaleString("es-ES")}</div>
+                  </button>
+                  {canMando && (
+                    <Button size="sm" variant="destructive" className="w-full" onClick={() => cerrarServicio(s)}>
+                      <X className="w-3 h-3 mr-1" /> Cerrar
+                    </Button>
+                  )}
+                </div>
               ))}
             </div>
           </section>
         )}
 
-        {session.role === "mando" && finalizados.length > 0 && (
+        {canMando && finalizados.length > 0 && (
           <section>
-            <h3 className="text-xs uppercase tracking-widest text-muted-foreground mb-3">Servicios finalizados (reabrir)</h3>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+            <h3 className="text-xs uppercase tracking-widest text-muted-foreground mb-3">Servicios finalizados</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
               {finalizados.map(s => (
                 <div key={s.id} className="bg-card border rounded p-3 flex items-center justify-between gap-2">
                   <div>
                     <div className="text-2xl font-mono font-bold text-muted-foreground">#{s.numero}</div>
                     <div className="text-[10px] text-muted-foreground">{s.finished_at ? new Date(s.finished_at).toLocaleString("es-ES") : ""}</div>
                   </div>
-                  <Button size="sm" variant="secondary" onClick={() => reabrirServicio(s)}>Reabrir</Button>
+                  <div className="flex flex-col gap-1">
+                    <Button size="sm" variant="secondary" onClick={() => descargarPdf(s)}><FileText className="w-3 h-3 mr-1" /> PDF</Button>
+                    <Button size="sm" variant="ghost" onClick={() => reabrirServicio(s)}>Reabrir</Button>
+                  </div>
                 </div>
               ))}
             </div>
           </section>
         )}
-
-        <section>
-          <h3 className="text-xs uppercase tracking-widest text-muted-foreground mb-3 flex items-center gap-2"><History className="w-3.5 h-3.5" /> Historial de intervenciones</h3>
-          {historial.length === 0 ? (
-            <div className="bg-card border rounded p-6 text-center text-sm text-muted-foreground">Aún no hay intervenciones finalizadas.</div>
-          ) : (
-            <div className="bg-card border rounded divide-y">
-              {historial.map(h => (
-                <div key={h.id} className="flex items-center justify-between px-4 py-3">
-                  <div>
-                    <div className="font-mono font-bold">Servicio #{h.numero}</div>
-                    <div className="text-xs text-muted-foreground">{new Date(h.fecha).toLocaleString("es-ES")}</div>
-                  </div>
-                  {h.pdf_url ? (
-                    <a href={h.pdf_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-sm text-primary hover:underline"><FileText className="w-4 h-4" /> PDF</a>
-                  ) : (
-                    <span className="text-xs text-muted-foreground">Sin PDF</span>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-        </section>
       </main>
 
       <Dialog open={newOpen} onOpenChange={setNewOpen}>

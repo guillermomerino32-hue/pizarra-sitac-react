@@ -4,16 +4,10 @@ export const VALID_INDICATIVOS = [
   "C00","C01","C02","C03","C04","C05","C06","C07",
   "D01","D02","D03",
 ];
-export const FIXED_PASSWORD = "Abdusk4n+";
 
-export type Role = "mando" | "voluntario";
-export function roleFor(indicativo: string): Role {
-  return indicativo.toUpperCase().startsWith("V") ? "voluntario" : "mando";
-}
 export function isValidIndicativo(ind: string): boolean {
   const u = ind.toUpperCase();
   if (VALID_INDICATIVOS.includes(u)) return true;
-  // voluntarios: starts with V + alphanum
   if (u.startsWith("V") && u.length >= 2) return true;
   return false;
 }
