@@ -88,9 +88,10 @@ function DrawHandler({ tool, onPoint, onFinish, onStrokePoint, onStrokeEnd, onEr
     },
   });
 
-  // Native listeners for eraser — Leaflet's mousemove gets suppressed while dragging is disabled
+  // Native listeners for eraser/pencil — Leaflet's mousemove gets suppressed while dragging is disabled
+  // and Leaflet does not emit mouse events for touch on mobile
   useEffect(() => {
-    if (tool !== "eraser") return;
+    if (tool !== "eraser" && tool !== "pencil") return;
     const container = map.getContainer();
     const toLatLng = (clientX: number, clientY: number) => {
       const rect = container.getBoundingClientRect();
@@ -98,30 +99,35 @@ function DrawHandler({ tool, onPoint, onFinish, onStrokePoint, onStrokeEnd, onEr
       const ll = map.containerPointToLatLng(point);
       return { lat: ll.lat, lng: ll.lng };
     };
-    const start = (x: number, y: number) => {
-      erasingStroke.current = true;
-      onErasePoint(toLatLng(x, y));
+    const activeRef = tool === "eraser" ? erasingStroke : drawingStroke;
+    const emitStart = (ll: { lat: number; lng: number }) => {
+      activeRef.current = true;
+      if (tool === "eraser") onErasePoint(ll); else onStrokePoint(ll);
     };
-    const move = (x: number, y: number) => {
-      if (!erasingStroke.current) return;
-      onErasePoint(toLatLng(x, y));
+    const emitMove = (ll: { lat: number; lng: number }) => {
+      if (!activeRef.current) return;
+      if (tool === "eraser") onErasePoint(ll); else onStrokePoint(ll);
     };
-    const end = () => { erasingStroke.current = false; };
+    const emitEnd = () => {
+      if (!activeRef.current) return;
+      activeRef.current = false;
+      if (tool === "pencil") onStrokeEnd();
+    };
 
-    const onMouseDown = (e: MouseEvent) => { e.preventDefault(); start(e.clientX, e.clientY); };
-    const onMouseMove = (e: MouseEvent) => move(e.clientX, e.clientY);
-    const onMouseUp = () => end();
+    const onMouseDown = (e: MouseEvent) => { e.preventDefault(); emitStart(toLatLng(e.clientX, e.clientY)); };
+    const onMouseMove = (e: MouseEvent) => emitMove(toLatLng(e.clientX, e.clientY));
+    const onMouseUp = () => emitEnd();
     const onTouchStart = (e: TouchEvent) => {
       if (e.touches.length !== 1) return;
       e.preventDefault();
-      start(e.touches[0].clientX, e.touches[0].clientY);
+      emitStart(toLatLng(e.touches[0].clientX, e.touches[0].clientY));
     };
     const onTouchMove = (e: TouchEvent) => {
       if (e.touches.length !== 1) return;
       e.preventDefault();
-      move(e.touches[0].clientX, e.touches[0].clientY);
+      emitMove(toLatLng(e.touches[0].clientX, e.touches[0].clientY));
     };
-    const onTouchEnd = () => end();
+    const onTouchEnd = () => emitEnd();
 
     container.addEventListener("mousedown", onMouseDown);
     window.addEventListener("mousemove", onMouseMove);
@@ -136,9 +142,10 @@ function DrawHandler({ tool, onPoint, onFinish, onStrokePoint, onStrokeEnd, onEr
       container.removeEventListener("touchstart", onTouchStart);
       container.removeEventListener("touchmove", onTouchMove);
       window.removeEventListener("touchend", onTouchEnd);
-      erasingStroke.current = false;
+      activeRef.current = false;
     };
-  }, [tool, map, onErasePoint]);
+  }, [tool, map, onErasePoint, onStrokePoint, onStrokeEnd]);
+
 
   return null;
 }
