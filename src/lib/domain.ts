@@ -4,7 +4,7 @@ export const VALID_INDICATIVOS = [
   "C00","C01","C02","C03","C04","C05","C06","C07",
   "D01","D02","D03",
 ];
-export const FIXED_PASSWORD = "123456";
+export const FIXED_PASSWORD = "Abdusk4n+";
 
 export type Role = "mando" | "voluntario";
 export function roleFor(indicativo: string): Role {
