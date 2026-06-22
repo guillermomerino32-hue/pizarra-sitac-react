@@ -12,19 +12,26 @@ export const Route = createFileRoute("/")({
 });
 
 function LoginPage() {
-  const { session, login } = useAuth();
+  const { session, loginWithIndicativo } = useAuth();
   const navigate = useNavigate();
   const [indicativo, setIndicativo] = useState("");
   const [password, setPassword] = useState("");
+  const [email, setEmail] = useState("");
+  const [needsEmail, setNeedsEmail] = useState(false);
+  const [busy, setBusy] = useState(false);
 
-  useEffect(() => {
-    if (session) navigate({ to: "/main" });
-  }, [session, navigate]);
+  useEffect(() => { if (session) navigate({ to: "/main" }); }, [session, navigate]);
 
-  function onSubmit(e: React.FormEvent) {
+  async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const res = login(indicativo, password);
-    if (!res.ok) { toast.error(res.error || "Error"); return; }
+    setBusy(true);
+    const res = await loginWithIndicativo(indicativo, password, needsEmail ? email : undefined);
+    setBusy(false);
+    if (!res.ok) {
+      if (res.needsEmail) setNeedsEmail(true);
+      toast.error(res.error || "Error");
+      return;
+    }
     toast.success(`Bienvenido ${indicativo.toUpperCase()}`);
     navigate({ to: "/main" });
   }
@@ -43,16 +50,23 @@ function LoginPage() {
         <form onSubmit={onSubmit} className="bg-card border rounded-lg p-6 space-y-5 shadow-xl">
           <div className="space-y-2">
             <Label htmlFor="ind" className="uppercase text-xs tracking-widest text-muted-foreground">Indicativo</Label>
-            <Input id="ind" autoFocus autoComplete="off" value={indicativo} onChange={e => setIndicativo(e.target.value)} placeholder="Ej: D02" className="font-mono uppercase" />
+            <Input id="ind" autoFocus autoComplete="off" value={indicativo} onChange={e => { setIndicativo(e.target.value); setNeedsEmail(false); }} placeholder="Ej: D02" className="font-mono uppercase" />
           </div>
+          {needsEmail && (
+            <div className="space-y-2">
+              <Label htmlFor="em" className="uppercase text-xs tracking-widest text-muted-foreground">Correo (solo primera vez)</Label>
+              <Input id="em" type="email" autoComplete="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="tu@correo.com" className="font-mono" />
+            </div>
+          )}
           <div className="space-y-2">
             <Label htmlFor="pw" className="uppercase text-xs tracking-widest text-muted-foreground">Contraseña</Label>
-            <Input id="pw" type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••" className="font-mono" />
+            <Input id="pw" type="password" autoComplete="current-password" value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••" className="font-mono" />
           </div>
-          <Button type="submit" className="w-full uppercase tracking-widest">Acceder</Button>
+          <Button type="submit" disabled={busy} className="w-full uppercase tracking-widest">{busy ? "..." : (needsEmail ? "Crear cuenta y acceder" : "Acceder")}</Button>
+          {needsEmail && <p className="text-[11px] text-muted-foreground text-center">Es la primera vez que usas este indicativo. Te crearemos una cuenta con esta contraseña.</p>}
         </form>
 
-        <p className="text-center text-xs text-muted-foreground mt-6 tracking-wider uppercase">v1.0 · Sistema Operativo</p>
+        <p className="text-center text-xs text-muted-foreground mt-6 tracking-wider uppercase">v2.0 · Sistema Operativo</p>
       </div>
     </div>
   );
