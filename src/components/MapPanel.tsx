@@ -69,24 +69,8 @@ function DrawHandler({ tool, onPoint, onFinish, onStrokePoint, onStrokeEnd, onEr
       if (tool === "zone") onPoint({ lat: e.latlng.lat, lng: e.latlng.lng });
     },
     dblclick() { if (tool === "zone") onFinish(); },
-    mousedown(e) {
-      if (tool === "pencil") {
-        drawingStroke.current = true;
-        onStrokePoint({ lat: e.latlng.lat, lng: e.latlng.lng });
-      }
-    },
-    mousemove(e) {
-      if (tool === "pencil" && drawingStroke.current) {
-        onStrokePoint({ lat: e.latlng.lat, lng: e.latlng.lng });
-      }
-    },
-    mouseup() {
-      if (tool === "pencil" && drawingStroke.current) {
-        drawingStroke.current = false;
-        onStrokeEnd();
-      }
-    },
   });
+
 
   // Native listeners for eraser/pencil — Leaflet's mousemove gets suppressed while dragging is disabled
   // and Leaflet does not emit mouse events for touch on mobile
