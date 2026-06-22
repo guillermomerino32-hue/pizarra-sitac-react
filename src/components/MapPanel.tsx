@@ -138,8 +138,22 @@ function MapRefBridge({ mapRef, dragging }: { mapRef: React.MutableRefObject<L.M
   const map = useMap();
   useEffect(() => { mapRef.current = map; }, [map, mapRef]);
   useEffect(() => {
-    if (dragging) { map.dragging.disable(); }
-    else { map.dragging.enable(); }
+    const container = map.getContainer();
+    if (dragging) {
+      map.dragging.disable();
+      map.touchZoom.disable();
+      map.doubleClickZoom.disable();
+      map.scrollWheelZoom.disable();
+      (map as any).tap?.disable?.();
+      container.style.touchAction = "none";
+    } else {
+      map.dragging.enable();
+      map.touchZoom.enable();
+      map.doubleClickZoom.enable();
+      map.scrollWheelZoom.enable();
+      (map as any).tap?.enable?.();
+      container.style.touchAction = "";
+    }
   }, [map, dragging]);
   return null;
 }
